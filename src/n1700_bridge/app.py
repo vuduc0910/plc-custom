@@ -1,0 +1,121 @@
+"""Application bootstrap with dependency injection wiring."""
+
+import sys
+from pathlib import Path
+from typing import Any
+
+from loguru import logger
+from PySide6.QtCore import QThread
+from PySide6.QtWidgets import QApplication
+
+from n1700_bridge.adapters.excel_xlwings import OpenpyxlExcelSource
+from n1700_bridge.adapters.n1700_fake import FakeN1700Controller
+from n1700_bridge.adapters.plc_fake import FakePLCClient
+from n1700_bridge.config.settings import AppSettings
+from n1700_bridge.core.models import Threshold
+from n1700_bridge.services.judgment_service import JudgmentService
+from n1700_bridge.services.measurement_service import MeasurementService
+from n1700_bridge.services.plc_listener import PLCListener
+from n1700_bridge.services.register_manager import RegisterManager
+from n1700_bridge.ui.main_window import MainWindow
+from n1700_bridge.utils.logging_config import setup_logging
+
+
+def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
+    """Build the application with all dependencies wired.
+
+    Args:
+        settings: Application settings.
+
+    Returns:
+        Tuple of (QApplication, MainWindow).
+    """
+    qt_app = QApplication(sys.argv)
+
+    # Setup logging
+    setup_logging(settings.log_dir)
+    logger.info("Starting N1700 Bridge")
+
+    # --- Adapters (swap real/fake by config) ---
+    excel_path = Path(settings.excel_input.path)
+
+    if settings.plc.use_fake:
+        plc: Any = FakePLCClient()
+        logger.info("Using FakePLCClient")
+    else:
+        # TODO: Wire SLMPPLCClient in Phase 4
+        plc = FakePLCClient()
+        logger.warning("Real PLC not implemented yet, falling back to fake")
+
+    if settings.n1700.use_fake:
+        n1700: Any = FakeN1700Controller(excel_path)
+        logger.info("Using FakeN1700Controller")
+    else:
+        # TODO: Wire PywinautoN1700Controller in Phase 4
+        n1700 = FakeN1700Controller(excel_path)
+        logger.warning("Real N1700 not implemented yet, falling back to fake")
+
+    excel: Any = OpenpyxlExcelSource(
+        path=excel_path,
+        sheet_name=settings.excel_input.sheet_name,
+        header_row=settings.excel_input.header_row,
+        port_columns=settings.excel_input.port_columns,
+    )
+
+    # --- Services ---
+    register_mgr = RegisterManager.load_or_create("config/registers.json")
+
+    thresholds = [
+        Threshold(port=t.port, lower=t.lower, upper=t.upper)
+        for t in settings.thresholds
+    ]
+    judgment = JudgmentService(thresholds, settings.judgment_grouping)
+
+    measurement_svc = MeasurementService(
+        plc=plc,
+        n1700=n1700,
+        excel=excel,
+        judgment=judgment,
+        registers=register_mgr,
+        settling_delay_ms=settings.settling_delay_ms,
+        barcode_ready_bit=settings.plc.barcode_ready_bit,
+    )
+
+    # --- Threads ---
+    plc_thread = QThread()
+    listener = PLCListener(
+        plc=plc,
+        trigger_address=settings.plc.trigger_bit,
+        poll_ms=settings.plc.poll_interval_ms,
+    )
+    listener.moveToThread(plc_thread)
+    plc_thread.started.connect(listener.start_polling)
+
+    measurement_thread = QThread()
+    measurement_svc.moveToThread(measurement_thread)
+    listener.trigger_received.connect(measurement_svc.run_cycle)
+    measurement_thread.start()
+
+    # --- UI ---
+    window = MainWindow()
+    window.wire_services(
+        measurement_svc=measurement_svc,
+        register_mgr=register_mgr,
+        plc=plc,
+    )
+
+    # Connect PLC and start polling
+    plc.connect()
+    plc_thread.start()
+
+    # Keep references alive on the window to prevent GC
+    window._refs = {  # type: ignore[attr-defined]
+        "plc_thread": plc_thread,
+        "measurement_thread": measurement_thread,
+        "listener": listener,
+        "measurement_svc": measurement_svc,
+        "plc": plc,
+    }
+
+    logger.info("Application built successfully")
+    return qt_app, window

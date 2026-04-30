@@ -1,0 +1,44 @@
+{
+  "plc": {
+    "host": "192.168.1.10",
+    "port": 5007,
+    "comm_type": "binary",
+    "trigger_bit": "M100",
+    "done_bit": "M101",
+    "barcode_ready_bit": "M102",
+    "poll_interval_ms": 100,
+    "use_fake": true
+  },
+  "n1700": {
+    "window_title_regex": "N1700.*",
+    "button_name": "Data",
+    "fallback_coords": null,
+    "use_fake": true
+  },
+  "excel_input": {
+    "path": "mocks/sample_n1700_output.xlsx",
+    "sheet_name": "Sheet1",
+    "header_row": 1,
+    "port_columns": ["B", "C", "D", "E", "F", "G", "H", "I", "J"],
+    "use_fake": true
+  },
+  "thresholds": [
+    { "port": 1, "lower": -0.05, "upper": 0.05 },
+    { "port": 2, "lower": -0.05, "upper": 0.05 },
+    { "port": 3, "lower": -0.05, "upper": 0.05 },
+    { "port": 4, "lower": -0.05, "upper": 0.05 },
+    { "port": 5, "lower": -0.05, "upper": 0.05 },
+    { "port": 6, "lower": -0.05, "upper": 0.05 },
+    { "port": 7, "lower": -0.05, "upper": 0.05 },
+    { "port": 8, "lower": -0.05, "upper": 0.05 },
+    { "port": 9, "lower": -0.05, "upper": 0.05 }
+  ],
+  "judgment_grouping": [
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9]
+  ],
+  "settling_delay_ms": 500,
+  "report_output_dir": "./reports",
+  "log_dir": "./logs"
+}

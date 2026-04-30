@@ -1,0 +1,5 @@
+pytest~=8.0
+pytest-qt~=4.0
+pytest-cov~=6.0
+ruff~=0.8.0
+mypy~=1.13.0
