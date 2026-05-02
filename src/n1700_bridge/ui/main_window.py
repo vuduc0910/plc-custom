@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Qt, Slot
+from loguru import logger
+from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
@@ -25,6 +26,7 @@ from .resources.strings_vi import STRINGS
 
 if TYPE_CHECKING:
     from n1700_bridge.config.models import RegisterConfig
+    from n1700_bridge.core.n1700 import N1700Controller
     from n1700_bridge.core.plc import PLCClient
     from n1700_bridge.services.measurement_service import MeasurementService
     from n1700_bridge.services.register_manager import RegisterManager
@@ -60,11 +62,15 @@ class MainWindow(QMainWindow):
         self.barcode_input.setPlaceholderText(STRINGS["barcode_placeholder"])
         self.barcode_input.setMinimumWidth(250)
 
+        self.barcode_reset_btn = QPushButton(STRINGS["barcode_reset_btn"])
+        self.barcode_reset_btn.setObjectName("reset-btn")
+
         self.export_btn = QPushButton(STRINGS["export_btn"])
         self.export_btn.setObjectName("export-btn")
 
         top_bar.addWidget(barcode_label)
         top_bar.addWidget(self.barcode_input)
+        top_bar.addWidget(self.barcode_reset_btn)
         top_bar.addStretch()
         top_bar.addWidget(self.export_btn)
         main_layout.addLayout(top_bar)
@@ -185,6 +191,9 @@ class MainWindow(QMainWindow):
         measurement_svc: MeasurementService,
         register_mgr: RegisterManager,
         plc: PLCClient,
+        n1700: N1700Controller | None = None,
+        report_output_dir: Path | None = None,
+        excel_path: Path | None = None,
     ) -> None:
         """Connect UI signals to services after DI wiring.
 
@@ -192,13 +201,23 @@ class MainWindow(QMainWindow):
             measurement_svc: The measurement orchestrator service.
             register_mgr: The register configuration manager.
             plc: The PLC client (for reading back state).
+            n1700: The N1700 controller (for status polling).
+            report_output_dir: Directory for exported reports.
+            excel_path: Path to the Excel input file (for status polling).
         """
         self._measurement_svc = measurement_svc
         self._register_mgr = register_mgr
         self._plc = plc
+        self._n1700: Any = n1700
+        self._report_output_dir = report_output_dir or Path("./reports")
+        self._excel_path = excel_path
 
         # Barcode input -> measurement service
         self.barcode_input.returnPressed.connect(self._on_barcode_entered)
+        self.barcode_reset_btn.clicked.connect(self._on_barcode_reset)
+
+        # Export button
+        self.export_btn.clicked.connect(self._on_export_clicked)
 
         # Measurement signals -> UI updates
         measurement_svc.measurement_complete.connect(self._on_measurement_complete)
@@ -213,6 +232,12 @@ class MainWindow(QMainWindow):
         if existing is not None:
             self._load_register_config(existing)
 
+        # Status bar polling (every 2 seconds)
+        self._status_timer = QTimer(self)
+        self._status_timer.timeout.connect(self._poll_status)
+        self._status_timer.start(2000)
+        self._poll_status()  # Initial poll
+
     @Slot()
     def _on_barcode_entered(self) -> None:
         """Handle barcode scan (Enter key / \\n terminator)."""
@@ -220,6 +245,39 @@ class MainWindow(QMainWindow):
         if text and hasattr(self, "_measurement_svc"):
             self._measurement_svc.part_id = text
             self.barcode_input.setReadOnly(True)
+
+    @Slot()
+    def _on_barcode_reset(self) -> None:
+        """Reset barcode input for a new scan."""
+        self.barcode_input.setReadOnly(False)
+        self.barcode_input.clear()
+        self.barcode_input.setFocus()
+        if hasattr(self, "_measurement_svc"):
+            self._measurement_svc.part_id = ""
+
+    @Slot()
+    def _on_export_clicked(self) -> None:
+        """Export measurement history to Excel report."""
+        if not hasattr(self, "_measurement_svc"):
+            return
+
+        history = self._measurement_svc.history
+        if not history:
+            self.statusBar().showMessage(STRINGS["export_empty"], 3000)
+            return
+
+        try:
+            from n1700_bridge.services.report_exporter import ReportExporter
+
+            exporter = ReportExporter(self._report_output_dir)
+            filepath = exporter.export(history)
+            msg = STRINGS["export_success"].format(filepath.name)
+            self.statusBar().showMessage(msg, 5000)
+            logger.info("Report exported via UI: {}", filepath)
+        except Exception as e:
+            msg = STRINGS["export_error"].format(str(e))
+            self.statusBar().showMessage(msg, 5000)
+            logger.error("Report export failed: {}", e)
 
     @Slot(object)
     def _on_measurement_complete(self, measurement: object) -> None:
@@ -238,8 +296,15 @@ class MainWindow(QMainWindow):
 
     @Slot(str)
     def _on_measurement_failed(self, error_msg: str) -> None:
-        """Show error toast on measurement failure."""
-        self.statusBar().showMessage(f"Error: {error_msg}", 5000)
+        """Show error toast on measurement failure with Vietnamese messages."""
+        # Match known error types to Vietnamese messages
+        if "N1700" in error_msg or "window" in error_msg.lower():
+            display_msg = STRINGS["error_n1700_not_found"]
+        elif "Excel" in error_msg or "excel" in error_msg.lower():
+            display_msg = STRINGS["error_excel_closed"]
+        else:
+            display_msg = error_msg
+        self.statusBar().showMessage(f"⚠ {display_msg}", 5000)
 
     @Slot()
     def _on_save_registers(self) -> None:
@@ -279,3 +344,42 @@ class MainWindow(QMainWindow):
             idx = group - 1
             if 0 <= idx < len(self.judgment_address_inputs):
                 self.judgment_address_inputs[idx].setText(addr)
+
+    @Slot()
+    def _poll_status(self) -> None:
+        """Poll adapter statuses and update status bar indicators."""
+        # PLC status
+        if hasattr(self, "_plc"):
+            try:
+                connected = self._plc.is_connected()
+            except Exception:
+                connected = False
+            if connected:
+                self.plc_status.setText(f"● {STRINGS['status_plc_connected']}")
+                self.plc_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
+            else:
+                self.plc_status.setText(f"● {STRINGS['status_plc_disconnected']}")
+                self.plc_status.setStyleSheet("color: #F44336; font-weight: bold;")
+
+        # N1700 status
+        if hasattr(self, "_n1700") and self._n1700 is not None:
+            try:
+                available = self._n1700.is_window_available()
+            except Exception:
+                available = False
+            if available:
+                self.n1700_status.setText(f"● {STRINGS['status_n1700_available']}")
+                self.n1700_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
+            else:
+                self.n1700_status.setText(f"● {STRINGS['status_n1700_unavailable']}")
+                self.n1700_status.setStyleSheet("color: #F44336; font-weight: bold;")
+
+        # Excel status
+        if hasattr(self, "_excel_path") and self._excel_path is not None:
+            excel_open = self._excel_path.exists()
+            if excel_open:
+                self.excel_status.setText(f"● {STRINGS['status_excel_open']}")
+                self.excel_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
+            else:
+                self.excel_status.setText(f"● {STRINGS['status_excel_closed']}")
+                self.excel_status.setStyleSheet("color: #F44336; font-weight: bold;")

@@ -15,6 +15,7 @@ from n1700_bridge.config.settings import AppSettings
 from n1700_bridge.core.models import Threshold
 from n1700_bridge.services.judgment_service import JudgmentService
 from n1700_bridge.services.measurement_service import MeasurementService
+from n1700_bridge.services.measurement_store import MeasurementStore
 from n1700_bridge.services.plc_listener import PLCListener
 from n1700_bridge.services.register_manager import RegisterManager
 from n1700_bridge.ui.main_window import MainWindow
@@ -43,17 +44,27 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         plc: Any = FakePLCClient()
         logger.info("Using FakePLCClient")
     else:
-        # TODO: Wire SLMPPLCClient in Phase 4
-        plc = FakePLCClient()
-        logger.warning("Real PLC not implemented yet, falling back to fake")
+        from n1700_bridge.adapters.plc_slmp import SLMPPLCClient
+
+        plc = SLMPPLCClient(
+            host=settings.plc.host,
+            port=settings.plc.port,
+            comm_type=settings.plc.comm_type,
+        )
+        logger.info("Using SLMPPLCClient: {}:{}", settings.plc.host, settings.plc.port)
 
     if settings.n1700.use_fake:
         n1700: Any = FakeN1700Controller(excel_path)
         logger.info("Using FakeN1700Controller")
     else:
-        # TODO: Wire PywinautoN1700Controller in Phase 4
-        n1700 = FakeN1700Controller(excel_path)
-        logger.warning("Real N1700 not implemented yet, falling back to fake")
+        from n1700_bridge.adapters.n1700_pywinauto import PywinautoN1700Controller
+
+        n1700 = PywinautoN1700Controller(
+            window_title_regex=settings.n1700.window_title_regex,
+            button_name=settings.n1700.button_name,
+            fallback_coords=settings.n1700.fallback_coords,
+        )
+        logger.info("Using PywinautoN1700Controller: {}", settings.n1700.window_title_regex)
 
     excel: Any = OpenpyxlExcelSource(
         path=excel_path,
@@ -71,6 +82,9 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
     ]
     judgment = JudgmentService(thresholds, settings.judgment_grouping)
 
+    store = MeasurementStore(settings.db_path)
+    logger.info("MeasurementStore: {} existing records", store.count())
+
     measurement_svc = MeasurementService(
         plc=plc,
         n1700=n1700,
@@ -79,7 +93,11 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         registers=register_mgr,
         settling_delay_ms=settings.settling_delay_ms,
         barcode_ready_bit=settings.plc.barcode_ready_bit,
+        store=store,
     )
+
+    # Restore recent history from DB so Export reflects past sessions
+    measurement_svc.restore_history(store.load_recent(limit=1000))
 
     # --- Threads ---
     plc_thread = QThread()
@@ -102,6 +120,9 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         measurement_svc=measurement_svc,
         register_mgr=register_mgr,
         plc=plc,
+        n1700=n1700,
+        report_output_dir=settings.report_output_dir,
+        excel_path=excel_path,
     )
 
     # Connect PLC and start polling

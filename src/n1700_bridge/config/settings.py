@@ -81,3 +81,4 @@ class AppSettings(BaseSettings):
     settling_delay_ms: int = 500
     report_output_dir: Path = Path("./reports")
     log_dir: Path = Path("./logs")
+    db_path: Path = Path("./data/measurements.db")

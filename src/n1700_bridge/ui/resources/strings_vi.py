@@ -4,7 +4,7 @@ STRINGS: dict[str, str] = {
     "window_title": "N1700 Bridge",
     "part_id_label": "Ma\u0303 con ha\u0300ng",
     "export_btn": "Xua\u0301t file excel",
-    "save_btn": "Lu\u01b0u",
+    "save_btn": "L\u01b0u",
     "saved_toast": "\u0110a\u0303 lu\u01b0u ca\u0301u hi\u0300nh thanh ghi",
     "status_plc_connected": "PLC: \u0110a\u0303 ke\u0301t no\u0301i",
     "status_plc_disconnected": "PLC: Ma\u0301t ke\u0301t no\u0301i",
@@ -23,4 +23,8 @@ STRINGS: dict[str, str] = {
     "judgment_address_label": "\u0110/c P\u0110",
     "time_column": "Time",
     "barcode_placeholder": "Que\u0301t ma\u0303 va\u0323ch...",
+    "barcode_reset_btn": "Que\u0301t la\u0323i",
+    "export_success": "\u0110a\u0303 xua\u0301t ba\u0301o ca\u0301o: {}",
+    "export_error": "Lo\u0303i xua\u0301t ba\u0301o ca\u0301o: {}",
+    "export_empty": "Kho\u0302ng co\u0301 du\u0303 lie\u0323u \u0111e\u0309 xua\u0301t",
 }

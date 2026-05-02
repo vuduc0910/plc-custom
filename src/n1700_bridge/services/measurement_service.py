@@ -12,6 +12,7 @@ from n1700_bridge.core.models import Measurement, Verdict
 from n1700_bridge.core.n1700 import N1700Controller, N1700Error
 from n1700_bridge.core.plc import PLCClient, PLCError
 from n1700_bridge.services.judgment_service import JudgmentService
+from n1700_bridge.services.measurement_store import MeasurementStore
 from n1700_bridge.services.register_manager import RegisterManager
 
 
@@ -41,6 +42,7 @@ class MeasurementService(QObject):
         registers: RegisterManager,
         settling_delay_ms: int = 500,
         barcode_ready_bit: str = "M102",
+        store: MeasurementStore | None = None,
     ) -> None:
         super().__init__()
         self._plc = plc
@@ -50,8 +52,17 @@ class MeasurementService(QObject):
         self._registers = registers
         self._settling_delay_ms = settling_delay_ms
         self._barcode_ready_bit = barcode_ready_bit
+        self._store = store
         self._part_id = ""
         self._history: list[Measurement] = []
+
+    def restore_history(self, measurements: list[Measurement]) -> None:
+        """Pre-populate in-memory history (e.g. from SQLite on startup)."""
+        self._history = list(measurements)[-1000:]
+        logger.info(
+            "MeasurementService restored {} measurements into history",
+            len(self._history),
+        )
 
     @property
     def part_id(self) -> str:
@@ -128,7 +139,14 @@ class MeasurementService(QObject):
             else:
                 log.warning("No register config set, skipping PLC write")
 
-            # 7. Store in history (max 1000)
+            # 7. Persist to SQLite (best-effort)
+            if self._store is not None:
+                try:
+                    self._store.save(measurement)
+                except Exception:
+                    log.exception("Failed to persist measurement to SQLite")
+
+            # 8. Store in history (max 1000)
             self._history.append(measurement)
             if len(self._history) > 1000:
                 self._history = self._history[-1000:]

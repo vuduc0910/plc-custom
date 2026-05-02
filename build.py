@@ -45,17 +45,22 @@ def build() -> None:
         "--hidden-import", "n1700_bridge.app",
         "--hidden-import", "n1700_bridge.config.settings",
         "--hidden-import", "n1700_bridge.adapters.plc_fake",
+        "--hidden-import", "n1700_bridge.adapters.plc_slmp",
         "--hidden-import", "n1700_bridge.adapters.n1700_fake",
+        "--hidden-import", "n1700_bridge.adapters.n1700_pywinauto",
         "--hidden-import", "n1700_bridge.adapters.excel_xlwings",
         "--hidden-import", "n1700_bridge.services.measurement_service",
         "--hidden-import", "n1700_bridge.services.plc_listener",
         "--hidden-import", "n1700_bridge.services.judgment_service",
         "--hidden-import", "n1700_bridge.services.register_manager",
+        "--hidden-import", "n1700_bridge.services.report_exporter",
         "--hidden-import", "n1700_bridge.ui.main_window",
         "--hidden-import", "n1700_bridge.utils.qt_signals",
         "--hidden-import", "n1700_bridge.utils.logging_config",
         "--hidden-import", "pydantic_settings",
         "--hidden-import", "openpyxl",
+        "--hidden-import", "pymcprotocol",
+        "--hidden-import", "pywinauto",
     ])
 
     # Add paths

@@ -13,6 +13,11 @@ env/
 *.log
 logs/
 reports/
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 config/config.json
 config/registers.json
 .mypy_cache/
@@ -24,3 +29,4 @@ config/registers.json
 .claude/*
 docs/*
 CLAUDE.md
+PROJECT_OVERVIEW.md
