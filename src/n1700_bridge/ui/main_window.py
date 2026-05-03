@@ -65,6 +65,15 @@ class MainWindow(QMainWindow):
         self.barcode_reset_btn = QPushButton(STRINGS["barcode_reset_btn"])
         self.barcode_reset_btn.setObjectName("reset-btn")
 
+        self.manual_trigger_btn = QPushButton(STRINGS["manual_trigger_btn"])
+        self.manual_trigger_btn.setObjectName("manual-trigger-btn")
+        self.manual_trigger_btn.setStyleSheet(
+            "QPushButton { background-color: #FF9800; color: white; "
+            "font-weight: bold; padding: 6px 16px; border-radius: 4px; }"
+            "QPushButton:hover { background-color: #F57C00; }"
+            "QPushButton:pressed { background-color: #E65100; }"
+        )
+
         self.export_btn = QPushButton(STRINGS["export_btn"])
         self.export_btn.setObjectName("export-btn")
 
@@ -72,6 +81,7 @@ class MainWindow(QMainWindow):
         top_bar.addWidget(self.barcode_input)
         top_bar.addWidget(self.barcode_reset_btn)
         top_bar.addStretch()
+        top_bar.addWidget(self.manual_trigger_btn)
         top_bar.addWidget(self.export_btn)
         main_layout.addLayout(top_bar)
 
@@ -223,6 +233,9 @@ class MainWindow(QMainWindow):
         measurement_svc.measurement_complete.connect(self._on_measurement_complete)
         measurement_svc.measurement_failed.connect(self._on_measurement_failed)
 
+        # Manual trigger button
+        self.manual_trigger_btn.clicked.connect(self._on_manual_trigger)
+
         # Save buttons
         self.save_port_btn.clicked.connect(self._on_save_registers)
         self.save_judgment_btn.clicked.connect(self._on_save_registers)
@@ -254,6 +267,15 @@ class MainWindow(QMainWindow):
         self.barcode_input.setFocus()
         if hasattr(self, "_measurement_svc"):
             self._measurement_svc.part_id = ""
+
+    @Slot()
+    def _on_manual_trigger(self) -> None:
+        """Fire a manual measurement cycle (bypasses PLC trigger)."""
+        if not hasattr(self, "_measurement_svc"):
+            return
+        logger.info("Manual trigger fired from UI")
+        self.statusBar().showMessage(STRINGS["manual_trigger_toast"], 2000)
+        self._measurement_svc.run_cycle()
 
     @Slot()
     def _on_export_clicked(self) -> None:

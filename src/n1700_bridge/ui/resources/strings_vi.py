@@ -27,4 +27,6 @@ STRINGS: dict[str, str] = {
     "export_success": "\u0110a\u0303 xua\u0301t ba\u0301o ca\u0301o: {}",
     "export_error": "Lo\u0303i xua\u0301t ba\u0301o ca\u0301o: {}",
     "export_empty": "Kho\u0302ng co\u0301 du\u0303 lie\u0323u \u0111e\u0309 xua\u0301t",
+    "manual_trigger_btn": "\u0110o thu\u0309 co\u0302ng",
+    "manual_trigger_toast": "\u0110a\u0303 gu\u0309i trigger thu\u0309 co\u0302ng",
 }
