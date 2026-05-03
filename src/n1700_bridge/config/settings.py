@@ -33,6 +33,7 @@ class N1700Settings(BaseModel):
     use_dll: bool = False
     dll_path: str = "N1700.dll"
     channel_count: int = 9
+    channel_start_index: int = 1
 
 
 class ExcelSettings(BaseModel):

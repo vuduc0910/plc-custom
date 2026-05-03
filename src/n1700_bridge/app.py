@@ -64,7 +64,9 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         dll_client.connect()
         n1700: Any = DllN1700Controller(dll_client)
         excel: Any = DllN1700Source(
-            dll_client, channel_count=settings.n1700.channel_count
+            dll_client,
+            channel_count=settings.n1700.channel_count,
+            channel_start_index=settings.n1700.channel_start_index,
         )
         logger.info(
             "Using N1700 DLL direct mode ({} channels via {})",

@@ -244,9 +244,11 @@ class DllN1700Source:
         self,
         client: N1700DllClient,
         channel_count: int = 9,
+        channel_start_index: int = 1,
     ) -> None:
         self._client = client
         self._channel_count = channel_count
+        self._channel_start = channel_start_index
 
     def read_latest_row(self) -> list[PortReading]:
         """Poll all configured channels and return PortReadings.
@@ -258,14 +260,15 @@ class DllN1700Source:
             raise ExcelSourceError("N1700 DLL not connected")
 
         readings: list[PortReading] = []
-        for ch in range(self._channel_count):
+        for i in range(self._channel_count):
+            ch = self._channel_start + i
             try:
                 value = self._client.poll_data(ch)
             except N1700Error as e:
                 raise ExcelSourceError(
                     f"Failed to poll channel {ch}: {e}"
                 ) from e
-            readings.append(PortReading(port=ch + 1, value=value))
+            readings.append(PortReading(port=i + 1, value=value))
 
         logger.debug(
             "DllN1700Source polled {} channels via DLL",
