@@ -42,6 +42,8 @@ class MeasurementService(QObject):
         registers: RegisterManager,
         settling_delay_ms: int = 500,
         barcode_ready_bit: str = "M102",
+        done_bit: str = "M101",
+        trigger_bit: str = "M100",
         store: MeasurementStore | None = None,
     ) -> None:
         super().__init__()
@@ -52,6 +54,8 @@ class MeasurementService(QObject):
         self._registers = registers
         self._settling_delay_ms = settling_delay_ms
         self._barcode_ready_bit = barcode_ready_bit
+        self._done_bit = done_bit
+        self._trigger_bit = trigger_bit
         self._store = store
         self._part_id = ""
         self._history: list[Measurement] = []
@@ -138,6 +142,14 @@ class MeasurementService(QObject):
                 self._write_to_plc(measurement, reg_config)
             else:
                 log.warning("No register config set, skipping PLC write")
+
+            # 6b. Set done_bit = ON (PLC biết data đã sẵn sàng)
+            log.debug("Step 6: Setting done_bit {} = ON", self._done_bit)
+            self._plc.write_bit(self._done_bit, True)
+
+            # 6c. Reset trigger_bit = OFF
+            log.debug("Step 6c: Resetting trigger_bit {} = OFF", self._trigger_bit)
+            self._plc.write_bit(self._trigger_bit, False)
 
             # 7. Persist to SQLite (best-effort)
             if self._store is not None:

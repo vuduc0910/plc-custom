@@ -114,6 +114,8 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         registers=register_mgr,
         settling_delay_ms=settings.settling_delay_ms,
         barcode_ready_bit=settings.plc.barcode_ready_bit,
+        done_bit=settings.plc.done_bit,
+        trigger_bit=settings.plc.trigger_bit,
         store=store,
     )
 
