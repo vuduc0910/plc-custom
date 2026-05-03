@@ -27,6 +27,7 @@ python -m venv .venv
 .venv\Scripts\activate       # Windows
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
+pip install -e .                 # Install package in editable mode
 
 # 2. Configure
 cp config/config.example.json config/config.json
