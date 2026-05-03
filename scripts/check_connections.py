@@ -240,29 +240,25 @@ def check_plc(config: dict) -> bool:
         print("       → PLC chưa bật hoặc port SLMP chưa cấu hình")
         return False
 
-    # SLMP connect test
+    # SLMP connect test (rk-mcprotocol for FX5U)
     try:
-        import pymcprotocol
-        plc_type = plc.get("plc_type", "iQ-R")
-        plc_client = pymcprotocol.Type3E(plctype=plc_type)
-        plc_client.setaccessopt(commtype=plc.get("comm_type", "binary"))
-        plc_client.connect(host, port)
-        ok("SLMP MC Protocol connected successfully")
+        from rk_mcprotocol import mc_protocol
+        mc = mc_protocol(ip=host, port=port)
+        ok("rk-mcprotocol connected successfully (FX5U)")
 
         # Try reading trigger bit
         trigger = plc.get("trigger_bit", "M100")
         try:
-            device = trigger[0]
+            device = trigger[0].lower()
             number = int(trigger[1:])
-            values = plc_client.batchread_bitunits(headdevice=f"{device}{number}", readsize=1)
+            values = mc.read_bit(headdevice=f"{device}{number}", length=1)
             ok(f"Read {trigger} = {values[0]}")
         except Exception as e:
             warn(f"Could not read {trigger}: {e}")
 
-        plc_client.close()
         return True
     except ImportError:
-        fail("pymcprotocol not installed (pip install pymcprotocol)")
+        fail("rk-mcprotocol not installed (pip install rk-mcprotocol)")
         return False
     except Exception as e:
         fail(f"SLMP connect failed: {e}")

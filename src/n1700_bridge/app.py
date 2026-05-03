@@ -44,15 +44,13 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         plc: Any = FakePLCClient()
         logger.info("Using FakePLCClient")
     else:
-        from n1700_bridge.adapters.plc_slmp import SLMPPLCClient
+        from n1700_bridge.adapters.plc_rk import RkSLMPPLCClient
 
-        plc = SLMPPLCClient(
+        plc = RkSLMPPLCClient(
             host=settings.plc.host,
             port=settings.plc.port,
-            comm_type=settings.plc.comm_type,
-            plc_type=settings.plc.plc_type,
         )
-        logger.info("Using SLMPPLCClient: {}:{}", settings.plc.host, settings.plc.port)
+        logger.info("Using RkSLMPPLCClient (FX5U): {}:{}", settings.plc.host, settings.plc.port)
 
     dll_client: Any = None
     if settings.n1700.use_dll:

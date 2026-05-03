@@ -1,5 +1,5 @@
 PySide6~=6.7.0
-pymcprotocol~=0.3.0
+rk-mcprotocol
 xlwings~=0.33.0
 pywinauto==0.6.9
 openpyxl~=3.1.0
