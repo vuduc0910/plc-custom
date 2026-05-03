@@ -53,25 +53,47 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         )
         logger.info("Using SLMPPLCClient: {}:{}", settings.plc.host, settings.plc.port)
 
-    if settings.n1700.use_fake:
-        n1700: Any = FakeN1700Controller(excel_path)
-        logger.info("Using FakeN1700Controller")
-    else:
-        from n1700_bridge.adapters.n1700_pywinauto import PywinautoN1700Controller
-
-        n1700 = PywinautoN1700Controller(
-            window_title_regex=settings.n1700.window_title_regex,
-            button_name=settings.n1700.button_name,
-            fallback_coords=settings.n1700.fallback_coords,
+    dll_client: Any = None
+    if settings.n1700.use_dll:
+        from n1700_bridge.adapters.n1700_dll import (
+            DllN1700Controller,
+            DllN1700Source,
+            N1700DllClient,
         )
-        logger.info("Using PywinautoN1700Controller: {}", settings.n1700.window_title_regex)
 
-    excel: Any = OpenpyxlExcelSource(
-        path=excel_path,
-        sheet_name=settings.excel_input.sheet_name,
-        header_row=settings.excel_input.header_row,
-        port_columns=settings.excel_input.port_columns,
-    )
+        dll_client = N1700DllClient(dll_path=settings.n1700.dll_path)
+        dll_client.connect()
+        n1700: Any = DllN1700Controller(dll_client)
+        excel: Any = DllN1700Source(
+            dll_client, channel_count=settings.n1700.channel_count
+        )
+        logger.info(
+            "Using N1700 DLL direct mode ({} channels via {})",
+            settings.n1700.channel_count, settings.n1700.dll_path,
+        )
+    else:
+        if settings.n1700.use_fake:
+            n1700 = FakeN1700Controller(excel_path)
+            logger.info("Using FakeN1700Controller")
+        else:
+            from n1700_bridge.adapters.n1700_pywinauto import PywinautoN1700Controller
+
+            n1700 = PywinautoN1700Controller(
+                window_title_regex=settings.n1700.window_title_regex,
+                button_name=settings.n1700.button_name,
+                fallback_coords=settings.n1700.fallback_coords,
+            )
+            logger.info(
+                "Using PywinautoN1700Controller: {}",
+                settings.n1700.window_title_regex,
+            )
+
+        excel = OpenpyxlExcelSource(
+            path=excel_path,
+            sheet_name=settings.excel_input.sheet_name,
+            header_row=settings.excel_input.header_row,
+            port_columns=settings.excel_input.port_columns,
+        )
 
     # --- Services ---
     register_mgr = RegisterManager.load_or_create("config/registers.json")
@@ -136,6 +158,7 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         "listener": listener,
         "measurement_svc": measurement_svc,
         "plc": plc,
+        "dll_client": dll_client,
     }
 
     logger.info("Application built successfully")

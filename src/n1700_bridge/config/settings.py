@@ -27,6 +27,11 @@ class N1700Settings(BaseModel):
     button_name: str = "Data"
     fallback_coords: tuple[int, int] | None = None
     use_fake: bool = True
+    # When True, bypass pywinauto + Excel and read directly via N1700.dll.
+    # Requires Windows + FTDI CDM21224 driver. Overrides use_fake for real hw.
+    use_dll: bool = False
+    dll_path: str = "N1700.dll"
+    channel_count: int = 9
 
 
 class ExcelSettings(BaseModel):
