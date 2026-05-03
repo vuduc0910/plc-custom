@@ -105,7 +105,7 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                values = rk_mcprotocol.read_bit(sock, headdevice=head, length=1)
+                values = rk_mcprotocol.read_bit(sock, head, 1)
                 result = bool(values[0])
                 logger.debug("RkSLMP read_bit {} = {}", address, result)
                 return result
@@ -123,7 +123,7 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                rk_mcprotocol.write_bit(sock, headdevice=head, value=[1 if value else 0])
+                rk_mcprotocol.write_bit(sock, head, [1 if value else 0])
                 logger.debug("RkSLMP write_bit {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_bit({address}, {value})")
@@ -140,9 +140,7 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                values = rk_mcprotocol.read_sign_word(
-                    sock, headdevice=head, length=1, signed_type=True,
-                )
+                values = rk_mcprotocol.read_sign_word(sock, head, 1, True)
                 result = values[0]
                 logger.debug("RkSLMP read_word {} = {}", address, result)
                 return int(result)
@@ -160,7 +158,7 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                rk_mcprotocol.write_sign_word(sock, headdevice=head, value=[value])
+                rk_mcprotocol.write_sign_word(sock, head, [value])
                 logger.debug("RkSLMP write_word {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_word({address}, {value})")
@@ -175,7 +173,7 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                rk_mcprotocol.write_sign_word(sock, headdevice=head, value=values)
+                rk_mcprotocol.write_sign_word(sock, head, values)
                 logger.debug("RkSLMP write_words {} count={}", start_address, len(values))
             except Exception as e:
                 self._handle_comm_error(e, f"write_words({start_address}, count={len(values)})")
@@ -193,7 +191,7 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                rk_mcprotocol.write_sign_word(sock, headdevice=head, value=[word_lo, word_hi])
+                rk_mcprotocol.write_sign_word(sock, head, [word_lo, word_hi])
                 logger.debug("RkSLMP write_float {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_float({address}, {value})")
@@ -209,13 +207,34 @@ class RkSLMPPLCClient:
         return match.group(1), int(match.group(2))
 
     def _ensure_connected(self) -> Any:
-        """Return the socket, raising if not connected. Must hold self._lock."""
-        if not self._connected or self._sock is None:
-            raise PLCConnectionError("PLC not connected")
-        return self._sock
+        """Return the socket, auto-reconnecting if needed. Must hold self._lock."""
+        if self._connected and self._sock is not None:
+            return self._sock
+
+        # Auto-reconnect
+        import rk_mcprotocol
+        try:
+            logger.info("RkSLMP PLC auto-reconnecting to {}:{}...", self._host, self._port)
+            if self._sock is not None:
+                try:
+                    self._sock.close()
+                except Exception:
+                    pass
+            sock = rk_mcprotocol.open_socket(self._host, self._port)
+            self._sock = sock
+            self._connected = True
+            logger.info("RkSLMP PLC auto-reconnected successfully")
+            return self._sock
+        except Exception as e:
+            self._connected = False
+            self._sock = None
+            raise PLCConnectionError(
+                f"PLC auto-reconnect failed: {e}"
+            ) from e
 
     def _handle_comm_error(self, error: Exception, context: str) -> None:
         """Handle communication errors — mark disconnected and raise PLCError."""
         self._connected = False
         logger.error("RkSLMP PLC communication error in {}: {}", context, error)
         raise PLCError(f"PLC communication error in {context}: {error}") from error
+

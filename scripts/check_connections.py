@@ -246,15 +246,36 @@ def check_plc(config: dict) -> bool:
         sock = rk_mcprotocol.open_socket(host, port)
         ok("rk-mcprotocol connected successfully (FX5U)")
 
-        # Try reading trigger bit
+        # Test 1: Read trigger bit (M100)
         trigger = plc.get("trigger_bit", "M100")
         try:
             device = trigger[0].lower()
             number = int(trigger[1:])
-            values = rk_mcprotocol.read_bit(sock, headdevice=f"{device}{number}", length=1)
-            ok(f"Read {trigger} = {values[0]}")
+            values = rk_mcprotocol.read_bit(sock, f"{device}{number}", 1)
+            ok(f"Read bit  {trigger} = {values[0]}")
         except Exception as e:
-            warn(f"Could not read {trigger}: {e}")
+            warn(f"Could not read bit {trigger}: {e}")
+
+        # Test 2: Read D1000 (word)
+        try:
+            values = rk_mcprotocol.read_sign_word(sock, "d1000", 1, True)
+            ok(f"Read word D1000 = {values[0]}")
+        except Exception as e:
+            warn(f"Could not read word D1000: {e}")
+
+        # Test 3: Read D100 (first port register)
+        try:
+            values = rk_mcprotocol.read_sign_word(sock, "d100", 1, True)
+            ok(f"Read word D100  = {values[0]}")
+        except Exception as e:
+            warn(f"Could not read word D100: {e}")
+
+        # Test 4: Read M200 (first judgment bit)
+        try:
+            values = rk_mcprotocol.read_bit(sock, "m200", 1)
+            ok(f"Read bit  M200 = {values[0]}")
+        except Exception as e:
+            warn(f"Could not read bit M200: {e}")
 
         sock.close()
         return True
