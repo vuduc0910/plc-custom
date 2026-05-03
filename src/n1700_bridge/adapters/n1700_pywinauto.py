@@ -36,9 +36,9 @@ class PywinautoN1700Controller:
 
         Strategy:
             1. Find the N1700 window by title regex
-            2. Try to find and click the "Data" button by control name
-            3. If not found, fall back to pixel coordinates
-            4. If both fail, raise N1700Error
+            2. Find ALL "Data" buttons and click the rightmost one (channel 0)
+            3. If not found by control name, try title regex
+            4. If both fail, fall back to pixel coordinates
 
         Raises:
             N1700Error: If the window is not found or click fails.
@@ -51,17 +51,21 @@ class PywinautoN1700Controller:
                 f"N1700 window not found (title_re={self._title_re!r})"
             )
 
-        # Strategy 1: Find button by control name
+        # Strategy 1: Find ALL "Data" buttons, pick rightmost (channel 0)
         try:
-            button = window.child_window(
+            buttons = window.children(
                 title=self._button_name,
                 control_type="Button",
             )
-            if button.exists(timeout=1):
-                button.click_input()
+            if buttons:
+                # Sort by x-coordinate (left position), pick the rightmost
+                rightmost = max(buttons, key=lambda b: b.rectangle().left)
+                rightmost.click_input()
                 logger.info(
-                    "N1700 clicked '{}' button via control name",
+                    "N1700 clicked rightmost '{}' button (x={}) out of {} buttons",
                     self._button_name,
+                    rightmost.rectangle().left,
+                    len(buttons),
                 )
                 return
         except Exception as e:
@@ -72,14 +76,16 @@ class PywinautoN1700Controller:
 
         # Strategy 2: Try by title match (less strict)
         try:
-            button = window.child_window(
+            buttons = window.children(
                 title_re=f".*{re.escape(self._button_name)}.*",
             )
-            if button.exists(timeout=1):
-                button.click_input()
+            if buttons:
+                rightmost = max(buttons, key=lambda b: b.rectangle().left)
+                rightmost.click_input()
                 logger.info(
-                    "N1700 clicked '{}' button via title regex",
+                    "N1700 clicked rightmost '{}' button via title regex (x={})",
                     self._button_name,
+                    rightmost.rectangle().left,
                 )
                 return
         except Exception as e:
