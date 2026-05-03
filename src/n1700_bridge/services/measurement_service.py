@@ -107,9 +107,10 @@ class MeasurementService(QObject):
         log.info("Measurement cycle started")
 
         try:
-            # 0. Reset barcode ready bit
-            log.debug("Step 0: Resetting barcode ready bit")
+            # 0. Reset control bits
+            log.debug("Step 0: Resetting control bits")
             self._plc.write_bit(self._barcode_ready_bit, False)
+            self._plc.write_bit(self._done_bit, False)
 
             # 1. Click N1700 Data button
             log.debug("Step 1: Clicking N1700 Data button")
