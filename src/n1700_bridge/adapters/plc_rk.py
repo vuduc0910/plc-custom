@@ -158,7 +158,7 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                rk_mcprotocol.write_sign_word(sock, head, [value])
+                rk_mcprotocol.write_sign_word(sock, head, [value], True)
                 logger.debug("RkSLMP write_word {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_word({address}, {value})")
@@ -173,7 +173,7 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                rk_mcprotocol.write_sign_word(sock, head, values)
+                rk_mcprotocol.write_sign_word(sock, head, values, True)
                 logger.debug("RkSLMP write_words {} count={}", start_address, len(values))
             except Exception as e:
                 self._handle_comm_error(e, f"write_words({start_address}, count={len(values)})")
@@ -191,7 +191,7 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                rk_mcprotocol.write_sign_word(sock, head, [word_lo, word_hi])
+                rk_mcprotocol.write_sign_word(sock, head, [word_lo, word_hi], True)
                 logger.debug("RkSLMP write_float {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_float({address}, {value})")
