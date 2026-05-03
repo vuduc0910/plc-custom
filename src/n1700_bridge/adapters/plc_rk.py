@@ -2,6 +2,8 @@
 
 Replaces pymcprotocol which does not support iQ-F series.
 Install: pip install rk-mcprotocol
+
+API: function-based, uses a socket object returned by open_socket().
 """
 
 import re
@@ -35,7 +37,7 @@ class RkSLMPPLCClient:
         self._port = port
         self._lock = threading.Lock()
         self._connected = False
-        self._mc: Any = None  # rk_mcprotocol instance
+        self._sock: Any = None  # socket returned by open_socket()
 
     def connect(self) -> None:
         """Connect to the PLC via SLMP.
@@ -43,17 +45,17 @@ class RkSLMPPLCClient:
         Raises:
             PLCConnectionError: If connection fails after retries.
         """
-        from rk_mcprotocol import mc_protocol  # noqa: I001
+        import rk_mcprotocol  # noqa: I001
 
         with self._lock:
-            if self._connected and self._mc is not None:
+            if self._connected and self._sock is not None:
                 logger.debug("RkSLMP PLC already connected")
                 return
 
             for attempt in range(1, _MAX_RETRIES + 1):
                 try:
-                    mc = mc_protocol(ip=self._host, port=self._port)
-                    self._mc = mc
+                    sock = rk_mcprotocol.open_socket(self._host, self._port)
+                    self._sock = sock
                     self._connected = True
                     logger.info(
                         "RkSLMP PLC connected: {}:{} (attempt {})",
@@ -77,7 +79,12 @@ class RkSLMPPLCClient:
     def disconnect(self) -> None:
         """Disconnect from the PLC."""
         with self._lock:
-            self._mc = None
+            if self._sock is not None:
+                try:
+                    self._sock.close()
+                except Exception as e:
+                    logger.warning("Error closing PLC socket: {}", e)
+                self._sock = None
             self._connected = False
         logger.info("RkSLMP PLC disconnected")
 
@@ -89,24 +96,16 @@ class RkSLMPPLCClient:
     # --- Bit devices ---
 
     def read_bit(self, address: str) -> bool:
-        """Read a single bit device (M, X, Y).
+        """Read a single bit device (M, X, Y)."""
+        import rk_mcprotocol
 
-        Args:
-            address: Device address, e.g. "M100".
-
-        Returns:
-            True if bit is ON, False if OFF.
-
-        Raises:
-            PLCError: If read fails.
-        """
         device, number = self._parse_address(address)
         head = f"{device.lower()}{number}"
 
         with self._lock:
-            mc = self._ensure_connected()
+            sock = self._ensure_connected()
             try:
-                values = mc.read_bit(headdevice=head, length=1)
+                values = rk_mcprotocol.read_bit(sock, headdevice=head, length=1)
                 result = bool(values[0])
                 logger.debug("RkSLMP read_bit {} = {}", address, result)
                 return result
@@ -115,22 +114,16 @@ class RkSLMPPLCClient:
                 return False  # unreachable
 
     def write_bit(self, address: str, value: bool) -> None:
-        """Write a single bit device.
+        """Write a single bit device."""
+        import rk_mcprotocol
 
-        Args:
-            address: Device address, e.g. "M200".
-            value: True for ON, False for OFF.
-
-        Raises:
-            PLCError: If write fails.
-        """
         device, number = self._parse_address(address)
         head = f"{device.lower()}{number}"
 
         with self._lock:
-            mc = self._ensure_connected()
+            sock = self._ensure_connected()
             try:
-                mc.write_bit(headdevice=head, value=[1 if value else 0])
+                rk_mcprotocol.write_bit(sock, headdevice=head, value=[1 if value else 0])
                 logger.debug("RkSLMP write_bit {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_bit({address}, {value})")
@@ -138,24 +131,18 @@ class RkSLMPPLCClient:
     # --- Word devices ---
 
     def read_word(self, address: str) -> int:
-        """Read a single word device (D, R).
+        """Read a single word device (D, R)."""
+        import rk_mcprotocol
 
-        Args:
-            address: Device address, e.g. "D100".
-
-        Returns:
-            16-bit word value.
-
-        Raises:
-            PLCError: If read fails.
-        """
         device, number = self._parse_address(address)
         head = f"{device.lower()}{number}"
 
         with self._lock:
-            mc = self._ensure_connected()
+            sock = self._ensure_connected()
             try:
-                values = mc.read_sign_word(headdevice=head, length=1, signed_type=True)
+                values = rk_mcprotocol.read_sign_word(
+                    sock, headdevice=head, length=1, signed_type=True,
+                )
                 result = values[0]
                 logger.debug("RkSLMP read_word {} = {}", address, result)
                 return int(result)
@@ -164,59 +151,39 @@ class RkSLMPPLCClient:
                 return 0  # unreachable
 
     def write_word(self, address: str, value: int) -> None:
-        """Write a single word device.
+        """Write a single word device."""
+        import rk_mcprotocol
 
-        Args:
-            address: Device address, e.g. "D100".
-            value: 16-bit integer value.
-
-        Raises:
-            PLCError: If write fails.
-        """
         device, number = self._parse_address(address)
         head = f"{device.lower()}{number}"
 
         with self._lock:
-            mc = self._ensure_connected()
+            sock = self._ensure_connected()
             try:
-                mc.write_sign_word(headdevice=head, value=[value])
+                rk_mcprotocol.write_sign_word(sock, headdevice=head, value=[value])
                 logger.debug("RkSLMP write_word {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_word({address}, {value})")
 
     def write_words(self, start_address: str, values: list[int]) -> None:
-        """Write multiple consecutive word devices.
+        """Write multiple consecutive word devices."""
+        import rk_mcprotocol
 
-        Args:
-            start_address: Starting device address, e.g. "D100".
-            values: List of 16-bit integer values.
-
-        Raises:
-            PLCError: If write fails.
-        """
         device, number = self._parse_address(start_address)
         head = f"{device.lower()}{number}"
 
         with self._lock:
-            mc = self._ensure_connected()
+            sock = self._ensure_connected()
             try:
-                mc.write_sign_word(headdevice=head, value=values)
+                rk_mcprotocol.write_sign_word(sock, headdevice=head, value=values)
                 logger.debug("RkSLMP write_words {} count={}", start_address, len(values))
             except Exception as e:
                 self._handle_comm_error(e, f"write_words({start_address}, count={len(values)})")
 
     def write_float(self, address: str, value: float) -> None:
-        """Write float as 2 consecutive D registers (IEEE 754, little-endian word order).
+        """Write float as 2 consecutive D registers (IEEE 754, little-endian word order)."""
+        import rk_mcprotocol
 
-        Args:
-            address: Starting device address, e.g. "D100".
-            value: Float value to write.
-
-        Raises:
-            PLCError: If write fails.
-
-        # TODO(client-Q6.1): Confirm word order with client.
-        """
         device, number = self._parse_address(address)
         packed = struct.pack("<f", value)
         word_lo = int.from_bytes(packed[0:2], "little")
@@ -224,9 +191,9 @@ class RkSLMPPLCClient:
 
         head = f"{device.lower()}{number}"
         with self._lock:
-            mc = self._ensure_connected()
+            sock = self._ensure_connected()
             try:
-                mc.write_sign_word(headdevice=head, value=[word_lo, word_hi])
+                rk_mcprotocol.write_sign_word(sock, headdevice=head, value=[word_lo, word_hi])
                 logger.debug("RkSLMP write_float {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_float({address}, {value})")
@@ -235,38 +202,20 @@ class RkSLMPPLCClient:
 
     @staticmethod
     def _parse_address(address: str) -> tuple[str, int]:
-        """Parse a PLC address string into device and number.
-
-        Args:
-            address: e.g. "D100", "M200", "X10"
-
-        Returns:
-            Tuple of (device_letter, device_number).
-
-        Raises:
-            PLCAddressError: If address format is invalid.
-        """
+        """Parse a PLC address string into device and number."""
         match = _ADDRESS_PATTERN.match(address)
         if not match:
             raise PLCAddressError(f"Invalid PLC address: {address}")
         return match.group(1), int(match.group(2))
 
     def _ensure_connected(self) -> Any:
-        """Return the MC instance, raising if not connected.
-
-        Must be called with self._lock held.
-        """
-        if not self._connected or self._mc is None:
+        """Return the socket, raising if not connected. Must hold self._lock."""
+        if not self._connected or self._sock is None:
             raise PLCConnectionError("PLC not connected")
-        return self._mc
+        return self._sock
 
     def _handle_comm_error(self, error: Exception, context: str) -> None:
-        """Handle communication errors — mark disconnected and raise PLCError.
-
-        Args:
-            error: The original exception.
-            context: Description of the operation that failed.
-        """
+        """Handle communication errors — mark disconnected and raise PLCError."""
         self._connected = False
         logger.error("RkSLMP PLC communication error in {}: {}", context, error)
         raise PLCError(f"PLC communication error in {context}: {error}") from error

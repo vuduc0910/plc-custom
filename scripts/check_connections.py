@@ -242,8 +242,8 @@ def check_plc(config: dict) -> bool:
 
     # SLMP connect test (rk-mcprotocol for FX5U)
     try:
-        from rk_mcprotocol import mc_protocol
-        mc = mc_protocol(ip=host, port=port)
+        import rk_mcprotocol
+        sock = rk_mcprotocol.open_socket(host, port)
         ok("rk-mcprotocol connected successfully (FX5U)")
 
         # Try reading trigger bit
@@ -251,11 +251,12 @@ def check_plc(config: dict) -> bool:
         try:
             device = trigger[0].lower()
             number = int(trigger[1:])
-            values = mc.read_bit(headdevice=f"{device}{number}", length=1)
+            values = rk_mcprotocol.read_bit(sock, headdevice=f"{device}{number}", length=1)
             ok(f"Read {trigger} = {values[0]}")
         except Exception as e:
             warn(f"Could not read {trigger}: {e}")
 
+        sock.close()
         return True
     except ImportError:
         fail("rk-mcprotocol not installed (pip install rk-mcprotocol)")
