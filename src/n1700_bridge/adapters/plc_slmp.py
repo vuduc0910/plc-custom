@@ -30,7 +30,7 @@ class SLMPPLCClient:
         host: str = "192.168.1.10",
         port: int = 5007,
         comm_type: str = "binary",
-        plc_type: str = "Q",
+        plc_type: str = "iQ-R",
     ) -> None:
         self._host = host
         self._port = port

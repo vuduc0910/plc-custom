@@ -13,7 +13,7 @@ class PLCSettings(BaseModel):
     host: str = "192.168.1.10"
     port: int = 5007
     comm_type: str = "binary"
-    plc_type: str = "Q"
+    plc_type: str = "iQ-R"
     trigger_bit: str = "M100"
     done_bit: str = "M101"
     barcode_ready_bit: str = "M102"

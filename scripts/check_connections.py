@@ -243,7 +243,8 @@ def check_plc(config: dict) -> bool:
     # SLMP connect test
     try:
         import pymcprotocol
-        plc_client = pymcprotocol.Type3E(plctype="iQ-F")
+        plc_type = plc.get("plc_type", "iQ-R")
+        plc_client = pymcprotocol.Type3E(plctype=plc_type)
         plc_client.setaccessopt(commtype=plc.get("comm_type", "binary"))
         plc_client.connect(host, port)
         ok("SLMP MC Protocol connected successfully")
