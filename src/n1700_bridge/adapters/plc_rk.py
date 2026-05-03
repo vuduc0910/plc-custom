@@ -95,8 +95,11 @@ class RkSLMPPLCClient:
 
     # --- Bit devices ---
 
+    _BIT_DEVICES = {"M", "X", "Y"}
+    _WORD_DEVICES = {"D", "R"}
+
     def read_bit(self, address: str) -> bool:
-        """Read a single bit device (M, X, Y)."""
+        """Read a single bit device (M, X, Y) or word device as bool (D, R)."""
         import rk_mcprotocol
 
         device, number = self._parse_address(address)
@@ -105,8 +108,13 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                values = rk_mcprotocol.read_bit(sock, head, 1)
-                result = bool(values[0])
+                if device in self._WORD_DEVICES:
+                    # D/R registers: read as word, treat non-zero as True
+                    values = rk_mcprotocol.read_sign_word(sock, head, 1, True)
+                    result = values[0] != 0
+                else:
+                    values = rk_mcprotocol.read_bit(sock, head, 1)
+                    result = bool(values[0])
                 logger.debug("RkSLMP read_bit {} = {}", address, result)
                 return result
             except Exception as e:
@@ -114,7 +122,7 @@ class RkSLMPPLCClient:
                 return False  # unreachable
 
     def write_bit(self, address: str, value: bool) -> None:
-        """Write a single bit device."""
+        """Write a single bit device (M, X, Y) or word device as 0/1 (D, R)."""
         import rk_mcprotocol
 
         device, number = self._parse_address(address)
@@ -123,7 +131,11 @@ class RkSLMPPLCClient:
         with self._lock:
             sock = self._ensure_connected()
             try:
-                rk_mcprotocol.write_bit(sock, head, [1 if value else 0])
+                if device in self._WORD_DEVICES:
+                    # D/R registers: write 1 or 0 as word value
+                    rk_mcprotocol.write_sign_word(sock, head, [1 if value else 0], True)
+                else:
+                    rk_mcprotocol.write_bit(sock, head, [1 if value else 0])
                 logger.debug("RkSLMP write_bit {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_bit({address}, {value})")
