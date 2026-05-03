@@ -50,6 +50,7 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
             host=settings.plc.host,
             port=settings.plc.port,
             comm_type=settings.plc.comm_type,
+            plc_type=settings.plc.plc_type,
         )
         logger.info("Using SLMPPLCClient: {}:{}", settings.plc.host, settings.plc.port)
 

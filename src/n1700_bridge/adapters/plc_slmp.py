@@ -30,10 +30,12 @@ class SLMPPLCClient:
         host: str = "192.168.1.10",
         port: int = 5007,
         comm_type: str = "binary",
+        plc_type: str = "Q",
     ) -> None:
         self._host = host
         self._port = port
         self._comm_type = comm_type
+        self._plc_type = plc_type
         self._lock = threading.Lock()
         self._connected = False
         self._plc: Any = None  # pymcprotocol.Type3E instance
@@ -53,7 +55,7 @@ class SLMPPLCClient:
 
             for attempt in range(1, _MAX_RETRIES + 1):
                 try:
-                    plc = pymcprotocol.Type3E(plctype="iQ-F")
+                    plc = pymcprotocol.Type3E(plctype=self._plc_type)
                     plc.setaccessopt(commtype=self._comm_type)
                     plc.connect(self._host, self._port)
                     self._plc = plc
