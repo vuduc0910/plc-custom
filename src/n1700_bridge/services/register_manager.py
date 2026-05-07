@@ -62,6 +62,9 @@ class RegisterManager:
                     judgment_addresses={
                         int(k): v for k, v in data.get("judgment_addresses", {}).items()
                     },
+                    multipliers={
+                        int(k): float(v) for k, v in data.get("multipliers", {}).items()
+                    },
                     part_id_address=data.get("part_id_address"),
                 )
                 mgr._config = config
@@ -79,6 +82,7 @@ class RegisterManager:
             data = {
                 "port_addresses": {str(k): v for k, v in config.port_addresses.items()},
                 "judgment_addresses": {str(k): v for k, v in config.judgment_addresses.items()},
+                "multipliers": {str(k): v for k, v in config.multipliers.items()},
                 "part_id_address": config.part_id_address,
             }
             self._persist_path.write_text(json.dumps(data, indent=2))

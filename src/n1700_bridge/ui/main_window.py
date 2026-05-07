@@ -95,10 +95,8 @@ class MainWindow(QMainWindow):
         self.measurement_table.setMinimumHeight(150)
         main_layout.addWidget(self.measurement_table)
 
-        # --- Register addresses + Judgments grid ---
         grid = QGridLayout()
 
-        # Row 0: Register address label + port address inputs + Save button
         grid.addWidget(QLabel(STRINGS["register_address_label"]), 0, 0)
         self.port_address_inputs: list[QLineEdit] = []
         for i in range(_NUM_PORTS):
@@ -108,12 +106,21 @@ class MainWindow(QMainWindow):
             self.port_address_inputs.append(inp)
             grid.addWidget(inp, 0, 1 + i)
 
+
+        grid.addWidget(QLabel(STRINGS["multiplier_label"]), 1, 0)
+        self.multiplier_inputs: list[QLineEdit] = []
+        for i in range(_NUM_PORTS):
+            inp = QLineEdit("1")
+            inp.setMaximumWidth(80)
+            self.multiplier_inputs.append(inp)
+            grid.addWidget(inp, 1, 1 + i)
+
         self.save_port_btn = QPushButton(STRINGS["save_btn"])
         self.save_port_btn.setObjectName("save-btn")
-        grid.addWidget(self.save_port_btn, 0, _NUM_PORTS + 1)
+        grid.addWidget(self.save_port_btn, 1, _NUM_PORTS + 1)
 
-        # Row 1: Judgment verdicts (3 groups spanning 3 columns each)
-        grid.addWidget(QLabel(STRINGS["judgment_label"]), 1, 0)
+        # Row 2: Judgment verdicts (3 groups spanning 3 columns each)
+        grid.addWidget(QLabel(STRINGS["judgment_label"]), 2, 0)
         self.verdict_labels: list[QLabel] = []
         for g in range(_NUM_GROUPS):
             label = QLabel("--")
@@ -121,10 +128,10 @@ class MainWindow(QMainWindow):
             label.setObjectName("verdict-pending")
             self.verdict_labels.append(label)
             col_start = 1 + g * _PORTS_PER_GROUP
-            grid.addWidget(label, 1, col_start, 1, _PORTS_PER_GROUP)
+            grid.addWidget(label, 2, col_start, 1, _PORTS_PER_GROUP)
 
-        # Row 2: Judgment address inputs + Save button
-        grid.addWidget(QLabel(STRINGS["judgment_address_label"]), 2, 0)
+        # Row 3: Judgment address inputs + Save button
+        grid.addWidget(QLabel(STRINGS["judgment_address_label"]), 3, 0)
         self.judgment_address_inputs: list[QLineEdit] = []
         for g in range(_NUM_GROUPS):
             inp = QLineEdit()
@@ -132,11 +139,11 @@ class MainWindow(QMainWindow):
             inp.setMaximumWidth(80)
             self.judgment_address_inputs.append(inp)
             col_start = 1 + g * _PORTS_PER_GROUP
-            grid.addWidget(inp, 2, col_start, 1, _PORTS_PER_GROUP)
+            grid.addWidget(inp, 3, col_start, 1, _PORTS_PER_GROUP)
 
         self.save_judgment_btn = QPushButton(STRINGS["save_btn"])
         self.save_judgment_btn.setObjectName("save-btn")
-        grid.addWidget(self.save_judgment_btn, 2, _NUM_PORTS + 1)
+        grid.addWidget(self.save_judgment_btn, 3, _NUM_PORTS + 1)
 
         main_layout.addLayout(grid)
 
@@ -319,18 +326,29 @@ class MainWindow(QMainWindow):
     @Slot(str)
     def _on_measurement_failed(self, error_msg: str) -> None:
         """Show error toast on measurement failure with Vietnamese messages."""
-        # Match known error types to Vietnamese messages
-        if "N1700" in error_msg or "window" in error_msg.lower():
-            display_msg = STRINGS["error_n1700_not_found"]
-        elif "Excel" in error_msg or "excel" in error_msg.lower():
-            display_msg = STRINGS["error_excel_closed"]
-        else:
-            display_msg = error_msg
-        self.statusBar().showMessage(f"⚠ {display_msg}", 5000)
+        display_msg = self._translate_error(error_msg)
+        self.statusBar().showMessage(f"\u26a0 {display_msg}", 5000)
+
+    @staticmethod
+    def _translate_error(error_msg: str) -> str:
+        msg_lower = error_msg.lower()
+        if "dll not connected" in msg_lower:
+            return STRINGS["error_dll_disconnected"]
+        if "timeout" in msg_lower and "n1700" in msg_lower:
+            return STRINGS["error_dll_timeout"]
+        if "polldata" in msg_lower or "poll channel" in msg_lower:
+            return STRINGS["error_dll_poll"]
+        if "window" in msg_lower:
+            return STRINGS["error_n1700_not_found"]
+        if "n1700" in msg_lower:
+            return STRINGS["error_dll_general"]
+        if "excel" in msg_lower:
+            return STRINGS["error_excel_closed"]
+        return error_msg
 
     @Slot()
     def _on_save_registers(self) -> None:
-        """Save register addresses from UI inputs."""
+        """Save register addresses and multipliers from UI inputs."""
         from n1700_bridge.config.models import RegisterConfig
 
         if not hasattr(self, "_register_mgr"):
@@ -342,6 +360,15 @@ class MainWindow(QMainWindow):
             if text:
                 port_addresses[i] = text
 
+        multipliers: dict[int, float] = {}
+        for i, inp in enumerate(self.multiplier_inputs, start=1):
+            text = inp.text().strip()
+            if text:
+                try:
+                    multipliers[i] = float(text)
+                except ValueError:
+                    pass
+
         judgment_addresses: dict[int, str] = {}
         for i, inp in enumerate(self.judgment_address_inputs, start=1):
             text = inp.text().strip()
@@ -350,6 +377,7 @@ class MainWindow(QMainWindow):
 
         config = RegisterConfig(
             port_addresses=port_addresses,
+            multipliers=multipliers,
             judgment_addresses=judgment_addresses,
         )
         self._register_mgr.save(config)
@@ -361,6 +389,11 @@ class MainWindow(QMainWindow):
             idx = port - 1
             if 0 <= idx < len(self.port_address_inputs):
                 self.port_address_inputs[idx].setText(addr)
+
+        for port, value in config.multipliers.items():
+            idx = port - 1
+            if 0 <= idx < len(self.multiplier_inputs):
+                self.multiplier_inputs[idx].setText(str(value))
 
         for group, addr in config.judgment_addresses.items():
             idx = group - 1

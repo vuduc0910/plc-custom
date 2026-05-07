@@ -27,6 +27,11 @@ STRINGS: dict[str, str] = {
     "export_success": "\u0110a\u0303 xua\u0301t ba\u0301o ca\u0301o: {}",
     "export_error": "Lo\u0303i xua\u0301t ba\u0301o ca\u0301o: {}",
     "export_empty": "Kho\u0302ng co\u0301 du\u0303 lie\u0323u \u0111e\u0309 xua\u0301t",
-    "manual_trigger_btn": "\u0110o thu\u0309 co\u0302ng",
-    "manual_trigger_toast": "\u0110a\u0303 gu\u0309i trigger thu\u0309 co\u0302ng",
+    "manual_trigger_btn": "\u0110o th\u1ee7 c\u00f4ng",
+    "manual_trigger_toast": "\u0110\u00e3 g\u1eedi trigger th\u1ee7 c\u00f4ng",
+    "multiplier_label": "H\u1ec7 s\u1ed1",
+    "error_dll_disconnected": "N1700 DLL ch\u01b0a k\u1ebft n\u1ed1i. Ki\u1ec3m tra USB.",
+    "error_dll_timeout": "N1700 DLL timeout. Ki\u1ec3m tra k\u1ebft n\u1ed1i USB.",
+    "error_dll_poll": "L\u1ed7i \u0111\u1ecdc d\u1eef li\u1ec7u t\u1eeb N1700 DLL.",
+    "error_dll_general": "L\u1ed7i N1700 DLL.",
 }

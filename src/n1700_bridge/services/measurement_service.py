@@ -8,7 +8,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 
 from n1700_bridge.config.models import RegisterConfig
 from n1700_bridge.core.excel_source import ExcelDataSource, ExcelSourceError
-from n1700_bridge.core.models import Measurement, Verdict
+from n1700_bridge.core.models import Measurement, PortReading, Verdict
 from n1700_bridge.core.n1700 import N1700Controller, N1700Error
 from n1700_bridge.core.plc import PLCClient, PLCError
 from n1700_bridge.services.judgment_service import JudgmentService
@@ -122,7 +122,12 @@ class MeasurementService(QObject):
 
             # 3. Read latest Excel row
             log.debug("Step 3: Reading latest Excel row")
-            readings = self._excel.read_latest_row()
+            raw_readings = self._excel.read_latest_row()
+
+            # 3b. Apply port weights
+            reg_config = self._registers.get()
+            weights = reg_config.multipliers if reg_config else {}
+            readings = self._apply_weights(raw_readings, weights)
 
             # 4. Compute OK/NG judgments
             log.debug("Step 4: Computing judgments")
@@ -137,7 +142,6 @@ class MeasurementService(QObject):
             )
 
             # 6. Write values + judgments to PLC
-            reg_config = self._registers.get()
             if reg_config is not None:
                 log.debug("Step 5: Writing to PLC registers")
                 self._write_to_plc(measurement, reg_config)
@@ -205,3 +209,14 @@ class MeasurementService(QObject):
             addr = reg_config.judgment_addresses.get(i)
             if addr:
                 self._plc.write_bit(addr, judgment.verdict == Verdict.OK)
+
+    @staticmethod
+    def _apply_weights(
+        readings: list[PortReading],
+        weights: dict[int, float],
+    ) -> list[PortReading]:
+        """Multiply raw readings by per-port weights (default 1.0)."""
+        return [
+            PortReading(port=r.port, value=r.value * weights.get(r.port, 1.0))
+            for r in readings
+        ]

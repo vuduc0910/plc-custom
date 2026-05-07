@@ -17,6 +17,7 @@ class PLCSettings(BaseModel):
     trigger_bit: str = "M100"
     done_bit: str = "M101"
     barcode_ready_bit: str = "M102"
+    rescan_bit: str = "D1002"
     poll_interval_ms: int = 100
     use_fake: bool = True
 

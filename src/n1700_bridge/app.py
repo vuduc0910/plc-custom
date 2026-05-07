@@ -129,6 +129,7 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
     listener = PLCListener(
         plc=plc,
         trigger_address=settings.plc.trigger_bit,
+        rescan_address=settings.plc.rescan_bit,
         poll_ms=settings.plc.poll_interval_ms,
     )
     listener.moveToThread(plc_thread)
@@ -149,6 +150,8 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         report_output_dir=settings.report_output_dir,
         excel_path=excel_path,
     )
+
+    listener.rescan_received.connect(window._on_barcode_reset)
 
     # Connect PLC and start polling
     plc.connect()
