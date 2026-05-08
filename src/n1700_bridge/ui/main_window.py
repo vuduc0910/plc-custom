@@ -304,26 +304,17 @@ class MainWindow(QMainWindow):
         self._status_timer.start(2000)
         self._poll_status()  # Initial poll
 
-    def _has_pending_measurements(self) -> bool:
-        return self.measurement_table.rowCount() > 0
-
     @Slot()
     def _on_barcode_entered(self) -> None:
+        """Handle barcode scan (Enter key / \\n terminator)."""
         text = self.barcode_input.text().strip()
-        if not text or not hasattr(self, "_measurement_svc"):
-            return
-        if self._has_pending_measurements():
-            self.barcode_input.clear()
-            self.statusBar().showMessage(STRINGS["barcode_blocked_has_items"], 3000)
-            return
-        self._measurement_svc.part_id = text
-        self.barcode_input.setReadOnly(True)
+        if text and hasattr(self, "_measurement_svc"):
+            self._measurement_svc.part_id = text
+            self.barcode_input.setReadOnly(True)
 
     @Slot()
     def _on_barcode_reset(self) -> None:
-        if self._has_pending_measurements():
-            self.statusBar().showMessage(STRINGS["barcode_blocked_has_items"], 3000)
-            return
+        """Reset barcode input for a new scan."""
         self.barcode_input.setReadOnly(False)
         self.barcode_input.clear()
         self.barcode_input.setFocus()

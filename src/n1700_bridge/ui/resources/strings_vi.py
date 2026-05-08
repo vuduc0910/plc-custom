@@ -38,5 +38,4 @@ STRINGS: dict[str, str] = {
     "lower_label": "Min",
     "upper_label": "Max",
     "computed_label": "K\u1ebft qu\u1ea3",
-    "barcode_blocked_has_items": "C\u00f2n d\u1eef li\u1ec7u \u0111o trong b\u1ea3ng. Vui l\u00f2ng xu\u1ea5t ho\u1eb7c x\u00f3a tr\u01b0\u1edbc khi qu\u00e9t m\u00e3 m\u1edbi.",
 }
