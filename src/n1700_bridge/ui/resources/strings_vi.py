@@ -34,4 +34,9 @@ STRINGS: dict[str, str] = {
     "error_dll_timeout": "N1700 DLL timeout. Ki\u1ec3m tra k\u1ebft n\u1ed1i USB.",
     "error_dll_poll": "L\u1ed7i \u0111\u1ecdc d\u1eef li\u1ec7u t\u1eeb N1700 DLL.",
     "error_dll_general": "L\u1ed7i N1700 DLL.",
+    "formula_label": "C\u00f4ng th\u1ee9c",
+    "lower_label": "Min",
+    "upper_label": "Max",
+    "computed_label": "K\u1ebft qu\u1ea3",
+    "barcode_blocked_has_items": "C\u00f2n d\u1eef li\u1ec7u \u0111o trong b\u1ea3ng. Vui l\u00f2ng xu\u1ea5t ho\u1eb7c x\u00f3a tr\u01b0\u1edbc khi qu\u00e9t m\u00e3 m\u1edbi.",
 }

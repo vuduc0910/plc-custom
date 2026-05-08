@@ -31,10 +31,8 @@ if TYPE_CHECKING:
     from n1700_bridge.services.measurement_service import MeasurementService
     from n1700_bridge.services.register_manager import RegisterManager
 
-_ADDRESS_REGEX_PATTERN = r"^[DMRXY]\d+$"
 _NUM_PORTS = 9
 _NUM_GROUPS = 3
-_PORTS_PER_GROUP = 3
 
 
 class MainWindow(QMainWindow):
@@ -106,7 +104,6 @@ class MainWindow(QMainWindow):
             self.port_address_inputs.append(inp)
             grid.addWidget(inp, 0, 1 + i)
 
-
         grid.addWidget(QLabel(STRINGS["multiplier_label"]), 1, 0)
         self.multiplier_inputs: list[QLineEdit] = []
         for i in range(_NUM_PORTS):
@@ -119,33 +116,79 @@ class MainWindow(QMainWindow):
         self.save_port_btn.setObjectName("save-btn")
         grid.addWidget(self.save_port_btn, 1, _NUM_PORTS + 1)
 
-        # Row 2: Judgment verdicts (3 groups spanning 3 columns each)
-        grid.addWidget(QLabel(STRINGS["judgment_label"]), 2, 0)
-        self.verdict_labels: list[QLabel] = []
-        for g in range(_NUM_GROUPS):
-            label = QLabel("--")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label.setObjectName("verdict-pending")
-            self.verdict_labels.append(label)
-            col_start = 1 + g * _PORTS_PER_GROUP
-            grid.addWidget(label, 2, col_start, 1, _PORTS_PER_GROUP)
+        main_layout.addLayout(grid)
 
-        # Row 3: Judgment address inputs + Save button
-        grid.addWidget(QLabel(STRINGS["judgment_address_label"]), 3, 0)
+        formula_grid = QGridLayout()
+        self.formula_inputs: list[QLineEdit] = []
+        self.lower_inputs: list[QLineEdit] = []
+        self.upper_inputs: list[QLineEdit] = []
+        self.computed_labels: list[QLabel] = []
+        self.verdict_labels: list[QLabel] = []
         self.judgment_address_inputs: list[QLineEdit] = []
+
+        default_formulas = [
+            "(p1+p2+p3+p4)/4",
+            "(p5+p6+p7+p8)/4",
+            "p9",
+        ]
+
+        headers = [
+            "",
+            STRINGS["formula_label"],
+            STRINGS["lower_label"],
+            STRINGS["upper_label"],
+            STRINGS["computed_label"],
+            STRINGS["judgment_label"],
+            STRINGS["judgment_address_label"],
+        ]
+        for col, text in enumerate(headers):
+            lbl = QLabel(text)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            formula_grid.addWidget(lbl, 0, col)
+
         for g in range(_NUM_GROUPS):
-            inp = QLineEdit()
-            inp.setPlaceholderText(f"M{200 + g}")
-            inp.setMaximumWidth(80)
-            self.judgment_address_inputs.append(inp)
-            col_start = 1 + g * _PORTS_PER_GROUP
-            grid.addWidget(inp, 3, col_start, 1, _PORTS_PER_GROUP)
+            row = g + 1
+            formula_grid.addWidget(QLabel(f"N{g + 1}"), row, 0)
+
+            formula_inp = QLineEdit(default_formulas[g])
+            formula_inp.setMinimumWidth(180)
+            self.formula_inputs.append(formula_inp)
+            formula_grid.addWidget(formula_inp, row, 1)
+
+            lower_inp = QLineEdit("-0.05")
+            lower_inp.setMaximumWidth(80)
+            self.lower_inputs.append(lower_inp)
+            formula_grid.addWidget(lower_inp, row, 2)
+
+            upper_inp = QLineEdit("0.05")
+            upper_inp.setMaximumWidth(80)
+            self.upper_inputs.append(upper_inp)
+            formula_grid.addWidget(upper_inp, row, 3)
+
+            computed_lbl = QLabel("--")
+            computed_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            computed_lbl.setMinimumWidth(80)
+            self.computed_labels.append(computed_lbl)
+            formula_grid.addWidget(computed_lbl, row, 4)
+
+            verdict_lbl = QLabel("--")
+            verdict_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            verdict_lbl.setObjectName("verdict-pending")
+            verdict_lbl.setMinimumWidth(60)
+            self.verdict_labels.append(verdict_lbl)
+            formula_grid.addWidget(verdict_lbl, row, 5)
+
+            jdg_inp = QLineEdit()
+            jdg_inp.setPlaceholderText(f"M{200 + g}")
+            jdg_inp.setMaximumWidth(80)
+            self.judgment_address_inputs.append(jdg_inp)
+            formula_grid.addWidget(jdg_inp, row, 6)
 
         self.save_judgment_btn = QPushButton(STRINGS["save_btn"])
         self.save_judgment_btn.setObjectName("save-btn")
-        grid.addWidget(self.save_judgment_btn, 3, _NUM_PORTS + 1)
+        formula_grid.addWidget(self.save_judgment_btn, _NUM_GROUPS + 1, 6)
 
-        main_layout.addLayout(grid)
+        main_layout.addLayout(formula_grid)
 
     def _setup_status_bar(self) -> None:
         """Create status bar with PLC, N1700, and Excel indicators."""
@@ -184,24 +227,27 @@ class MainWindow(QMainWindow):
             self.measurement_table.setItem(row, 1 + i, QTableWidgetItem(f"{val:.4f}"))
         self.measurement_table.scrollToBottom()
 
-    def update_verdicts(self, verdicts: list[str]) -> None:
-        """Update the verdict labels with OK/NG status.
+    def update_verdicts(self, judgments: list[Any]) -> None:
+        from n1700_bridge.core.models import JudgmentGroup
 
-        Args:
-            verdicts: List of 3 verdict strings ("OK" or "NG").
-        """
-        for i, verdict in enumerate(verdicts):
-            if i < len(self.verdict_labels):
-                self.verdict_labels[i].setText(verdict)
-                if verdict == "OK":
-                    self.verdict_labels[i].setObjectName("verdict-ok")
-                elif verdict == "NG":
-                    self.verdict_labels[i].setObjectName("verdict-ng")
-                else:
-                    self.verdict_labels[i].setObjectName("verdict-pending")
-                # Force style refresh
-                self.verdict_labels[i].style().unpolish(self.verdict_labels[i])
-                self.verdict_labels[i].style().polish(self.verdict_labels[i])
+        for i, jdg in enumerate(judgments):
+            if not isinstance(jdg, JudgmentGroup):
+                continue
+            if i >= len(self.verdict_labels):
+                break
+
+            self.computed_labels[i].setText(f"{jdg.computed_value:.6f}")
+
+            verdict = jdg.verdict.value
+            self.verdict_labels[i].setText(verdict)
+            if verdict == "OK":
+                self.verdict_labels[i].setObjectName("verdict-ok")
+            elif verdict == "NG":
+                self.verdict_labels[i].setObjectName("verdict-ng")
+            else:
+                self.verdict_labels[i].setObjectName("verdict-pending")
+            self.verdict_labels[i].style().unpolish(self.verdict_labels[i])
+            self.verdict_labels[i].style().polish(self.verdict_labels[i])
 
     def wire_services(
         self,
@@ -258,17 +304,26 @@ class MainWindow(QMainWindow):
         self._status_timer.start(2000)
         self._poll_status()  # Initial poll
 
+    def _has_pending_measurements(self) -> bool:
+        return self.measurement_table.rowCount() > 0
+
     @Slot()
     def _on_barcode_entered(self) -> None:
-        """Handle barcode scan (Enter key / \\n terminator)."""
         text = self.barcode_input.text().strip()
-        if text and hasattr(self, "_measurement_svc"):
-            self._measurement_svc.part_id = text
-            self.barcode_input.setReadOnly(True)
+        if not text or not hasattr(self, "_measurement_svc"):
+            return
+        if self._has_pending_measurements():
+            self.barcode_input.clear()
+            self.statusBar().showMessage(STRINGS["barcode_blocked_has_items"], 3000)
+            return
+        self._measurement_svc.part_id = text
+        self.barcode_input.setReadOnly(True)
 
     @Slot()
     def _on_barcode_reset(self) -> None:
-        """Reset barcode input for a new scan."""
+        if self._has_pending_measurements():
+            self.statusBar().showMessage(STRINGS["barcode_blocked_has_items"], 3000)
+            return
         self.barcode_input.setReadOnly(False)
         self.barcode_input.clear()
         self.barcode_input.setFocus()
@@ -320,8 +375,7 @@ class MainWindow(QMainWindow):
         values = [r.value for r in measurement.readings]
         self.add_measurement_row(time_str, values)
 
-        verdicts = [j.verdict.value for j in measurement.judgments]
-        self.update_verdicts(verdicts)
+        self.update_verdicts(measurement.judgments)
 
     @Slot(str)
     def _on_measurement_failed(self, error_msg: str) -> None:
@@ -348,7 +402,6 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def _on_save_registers(self) -> None:
-        """Save register addresses and multipliers from UI inputs."""
         from n1700_bridge.config.models import RegisterConfig
 
         if not hasattr(self, "_register_mgr"):
@@ -375,16 +428,51 @@ class MainWindow(QMainWindow):
             if text:
                 judgment_addresses[i] = text
 
+        formula_groups: list[dict[str, object]] = []
+        for i in range(_NUM_GROUPS):
+            formula_groups.append({
+                "formula": self.formula_inputs[i].text().strip(),
+                "lower": float(self.lower_inputs[i].text() or "0"),
+                "upper": float(self.upper_inputs[i].text() or "0"),
+            })
+
         config = RegisterConfig(
             port_addresses=port_addresses,
             multipliers=multipliers,
             judgment_addresses=judgment_addresses,
+            formula_groups=formula_groups,
         )
         self._register_mgr.save(config)
+        self._sync_judgment_from_ui()
         self.statusBar().showMessage(STRINGS["saved_toast"], 3000)
 
+    def _sync_judgment_from_ui(self) -> None:
+        from n1700_bridge.core.models import FormulaGroupConfig
+
+        if not hasattr(self, "_measurement_svc"):
+            return
+
+        default_port_groups = [(1, 2, 3, 4), (5, 6, 7, 8), (9,)]
+        groups: list[FormulaGroupConfig] = []
+        for i in range(_NUM_GROUPS):
+            formula = self.formula_inputs[i].text().strip()
+            try:
+                lower = float(self.lower_inputs[i].text())
+            except ValueError:
+                lower = 0.0
+            try:
+                upper = float(self.upper_inputs[i].text())
+            except ValueError:
+                upper = 0.0
+            groups.append(FormulaGroupConfig(
+                ports=default_port_groups[i],
+                formula=formula,
+                lower=lower,
+                upper=upper,
+            ))
+        self._measurement_svc.update_judgment(groups)
+
     def _load_register_config(self, config: RegisterConfig) -> None:
-        """Populate UI inputs from existing register config."""
         for port, addr in config.port_addresses.items():
             idx = port - 1
             if 0 <= idx < len(self.port_address_inputs):
@@ -399,6 +487,16 @@ class MainWindow(QMainWindow):
             idx = group - 1
             if 0 <= idx < len(self.judgment_address_inputs):
                 self.judgment_address_inputs[idx].setText(addr)
+
+        for i, fg in enumerate(config.formula_groups):
+            if i >= _NUM_GROUPS:
+                break
+            if "formula" in fg:
+                self.formula_inputs[i].setText(str(fg["formula"]))
+            if "lower" in fg:
+                self.lower_inputs[i].setText(str(fg["lower"]))
+            if "upper" in fg:
+                self.upper_inputs[i].setText(str(fg["upper"]))
 
     @Slot()
     def _poll_status(self) -> None:

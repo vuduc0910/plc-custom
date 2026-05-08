@@ -60,6 +60,13 @@ class MeasurementService(QObject):
         self._part_id = ""
         self._history: list[Measurement] = []
 
+    def update_judgment(self, groups: list) -> None:
+        from n1700_bridge.core.models import FormulaGroupConfig
+
+        typed_groups = [g for g in groups if isinstance(g, FormulaGroupConfig)]
+        self._judgment = JudgmentService(typed_groups)
+        logger.info("JudgmentService updated with {} formula groups", len(typed_groups))
+
     def restore_history(self, measurements: list[Measurement]) -> None:
         """Pre-populate in-memory history (e.g. from SQLite on startup)."""
         self._history = list(measurements)[-1000:]

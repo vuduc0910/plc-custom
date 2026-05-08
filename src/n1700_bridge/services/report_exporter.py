@@ -60,44 +60,44 @@ class ReportExporter:
         headers = (
             ["Timestamp", "Part ID"]
             + [f"Port {i}" for i in range(1, _NUM_PORTS + 1)]
-            + [f"Group {i}" for i in range(1, _NUM_GROUPS + 1)]
+            + [
+                item
+                for i in range(1, _NUM_GROUPS + 1)
+                for item in (f"G{i} Value", f"G{i} Verdict")
+            ]
         )
         ws.append(headers)
 
-        # Style headers
         for col_idx in range(1, len(headers) + 1):
             cell = ws.cell(row=1, column=col_idx)
             cell.font = _HEADER_FONT
             cell.fill = _HEADER_FILL
             cell.alignment = _HEADER_ALIGN
 
-        # Write measurement rows
         for m in measurements:
             row_data: list[str | float] = [
                 m.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                 m.part_id,
             ]
 
-            # Port readings (fill with 0.0 if missing)
             readings_map = {r.port: r.value for r in m.readings}
             for port in range(1, _NUM_PORTS + 1):
                 row_data.append(readings_map.get(port, 0.0))
 
-            # Judgment verdicts
             for j in m.judgments:
+                row_data.append(j.computed_value)
                 row_data.append(j.verdict.value)
 
-            # Pad if fewer than 3 judgments
             while len(row_data) < len(headers):
                 row_data.append("")
 
             ws.append(row_data)
 
-        # Style verdict cells (columns after Port9)
-        verdict_start_col = 2 + _NUM_PORTS + 1  # 1-indexed
+        verdict_start_col = 2 + _NUM_PORTS + 1
         for row_idx in range(2, len(measurements) + 2):
-            for col_offset in range(_NUM_GROUPS):
-                cell = ws.cell(row=row_idx, column=verdict_start_col + col_offset)
+            for g in range(_NUM_GROUPS):
+                verdict_col = verdict_start_col + g * 2 + 1
+                cell = ws.cell(row=row_idx, column=verdict_col)
                 if cell.value == Verdict.OK.value:
                     cell.fill = _OK_FILL
                     cell.font = _OK_FONT

@@ -13,4 +13,5 @@ class RegisterConfig:
     port_addresses: dict[int, str] = field(default_factory=dict)
     judgment_addresses: dict[int, str] = field(default_factory=dict)
     multipliers: dict[int, float] = field(default_factory=dict)
+    formula_groups: list[dict[str, object]] = field(default_factory=list)
     part_id_address: str | None = None

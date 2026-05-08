@@ -11,7 +11,6 @@ import sqlite3
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import cast
 
 from loguru import logger
 
@@ -41,6 +40,8 @@ CREATE TABLE IF NOT EXISTS judgments (
     measurement_id  INTEGER NOT NULL,
     group_index     INTEGER NOT NULL,
     ports           TEXT    NOT NULL,
+    formula         TEXT    NOT NULL DEFAULT '',
+    computed_value  REAL    NOT NULL DEFAULT 0.0,
     verdict         TEXT    NOT NULL,
     PRIMARY KEY (measurement_id, group_index),
     FOREIGN KEY (measurement_id) REFERENCES measurements(id) ON DELETE CASCADE
@@ -83,13 +84,15 @@ class MeasurementStore:
                 [(mid, r.port, r.value) for r in measurement.readings],
             )
             conn.executemany(
-                "INSERT INTO judgments (measurement_id, group_index, ports, verdict) "
-                "VALUES (?, ?, ?, ?)",
+                "INSERT INTO judgments (measurement_id, group_index, ports, formula, computed_value, verdict) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 [
                     (
                         mid,
                         i,
                         ",".join(str(p) for p in j.ports),
+                        j.formula,
+                        j.computed_value,
                         j.verdict.value,
                     )
                     for i, j in enumerate(measurement.judgments, start=1)
@@ -120,7 +123,7 @@ class MeasurementStore:
                     (mid,),
                 ).fetchall()
                 judgment_rows = conn.execute(
-                    "SELECT ports, verdict FROM judgments "
+                    "SELECT ports, formula, computed_value, verdict FROM judgments "
                     "WHERE measurement_id = ? ORDER BY group_index",
                     (mid,),
                 ).fetchall()
@@ -128,13 +131,12 @@ class MeasurementStore:
                 readings = [PortReading(port=p, value=v) for p, v in reading_rows]
                 judgments = [
                     JudgmentGroup(
-                        ports=cast(
-                            "tuple[int, int, int]",
-                            tuple(int(x) for x in ports_str.split(",")),
-                        ),
+                        ports=tuple(int(x) for x in ports_str.split(",")),
+                        formula=formula_str,
+                        computed_value=cv,
                         verdict=Verdict(verdict_str),
                     )
-                    for ports_str, verdict_str in judgment_rows
+                    for ports_str, formula_str, cv, verdict_str in judgment_rows
                 ]
 
                 measurements.append(
@@ -165,4 +167,15 @@ class MeasurementStore:
     def _init_schema(self) -> None:
         with self._lock, self._connect() as conn:
             conn.executescript(_SCHEMA)
+            self._migrate_formula_columns(conn)
             conn.commit()
+
+    @staticmethod
+    def _migrate_formula_columns(conn: sqlite3.Connection) -> None:
+        cols = {
+            row[1] for row in conn.execute("PRAGMA table_info(judgments)").fetchall()
+        }
+        if "formula" not in cols:
+            conn.execute("ALTER TABLE judgments ADD COLUMN formula TEXT NOT NULL DEFAULT ''")
+        if "computed_value" not in cols:
+            conn.execute("ALTER TABLE judgments ADD COLUMN computed_value REAL NOT NULL DEFAULT 0.0")

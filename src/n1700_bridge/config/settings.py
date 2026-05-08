@@ -47,20 +47,14 @@ class ExcelSettings(BaseModel):
     use_fake: bool = True
 
 
-class ThresholdConfig(BaseModel):
-    """Threshold configuration for a single port."""
-
-    # TODO(client-Q1.2): Confirm threshold source with client.
-    port: int
+class FormulaGroupSettings(BaseModel):
+    ports: list[int]
+    formula: str
     lower: float
     upper: float
 
 
 class AppSettings(BaseSettings):
-    """Main application settings.
-
-    Loads from config/config.json with env var overrides (prefix N1700_).
-    """
 
     _json_file: ClassVar[str] = "config/config.json"
 
@@ -73,7 +67,6 @@ class AppSettings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Add JSON config file as a settings source."""
         return (
             init_settings,
             env_settings,
@@ -84,8 +77,11 @@ class AppSettings(BaseSettings):
     plc: PLCSettings = PLCSettings()
     n1700: N1700Settings = N1700Settings()
     excel_input: ExcelSettings = ExcelSettings()
-    thresholds: list[ThresholdConfig] = []
-    judgment_grouping: list[tuple[int, int, int]] = [(1, 2, 3), (4, 5, 6), (7, 8, 9)]
+    formula_groups: list[FormulaGroupSettings] = [
+        FormulaGroupSettings(ports=[1, 2, 3, 4], formula="(p1+p2+p3+p4)/4", lower=-0.05, upper=0.05),
+        FormulaGroupSettings(ports=[5, 6, 7, 8], formula="(p5+p6+p7+p8)/4", lower=-0.05, upper=0.05),
+        FormulaGroupSettings(ports=[9], formula="p9", lower=-0.05, upper=0.05),
+    ]
     settling_delay_ms: int = 500
     report_output_dir: Path = Path("./reports")
     log_dir: Path = Path("./logs")

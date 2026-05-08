@@ -12,7 +12,7 @@ from n1700_bridge.adapters.excel_xlwings import OpenpyxlExcelSource
 from n1700_bridge.adapters.n1700_fake import FakeN1700Controller
 from n1700_bridge.adapters.plc_fake import FakePLCClient
 from n1700_bridge.config.settings import AppSettings
-from n1700_bridge.core.models import Threshold
+from n1700_bridge.core.models import FormulaGroupConfig
 from n1700_bridge.services.judgment_service import JudgmentService
 from n1700_bridge.services.measurement_service import MeasurementService
 from n1700_bridge.services.measurement_store import MeasurementStore
@@ -99,11 +99,16 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
     # --- Services ---
     register_mgr = RegisterManager.load_or_create("config/registers.json")
 
-    thresholds = [
-        Threshold(port=t.port, lower=t.lower, upper=t.upper)
-        for t in settings.thresholds
+    formula_groups = [
+        FormulaGroupConfig(
+            ports=tuple(g.ports),
+            formula=g.formula,
+            lower=g.lower,
+            upper=g.upper,
+        )
+        for g in settings.formula_groups
     ]
-    judgment = JudgmentService(thresholds, settings.judgment_grouping)
+    judgment = JudgmentService(formula_groups)
 
     store = MeasurementStore(settings.db_path)
     logger.info("MeasurementStore: {} existing records", store.count())
