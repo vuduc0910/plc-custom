@@ -185,8 +185,6 @@ class MainWindow(QMainWindow):
         self.export_btn.clicked.connect(h.on_export_clicked)
         measurement_svc.measurement_complete.connect(h.on_measurement_complete)
         measurement_svc.measurement_failed.connect(h.on_measurement_failed)
-        measurement_svc.zero_captured.connect(h.on_zero_captured)
-        measurement_svc.zero_failed.connect(h.on_zero_failed)
         self.manual_trigger_btn.clicked.connect(h.on_manual_trigger)
         self.get_zero_btn.clicked.connect(h.on_get_zero)
         self.save_port_btn.clicked.connect(h.on_save_registers)

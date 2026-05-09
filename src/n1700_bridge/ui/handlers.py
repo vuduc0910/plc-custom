@@ -110,24 +110,20 @@ class MainWindowHandlers:
         if not hasattr(self._w, "_measurement_svc"):
             return
         self._w.get_zero_btn.setEnabled(False)
-        self._w._measurement_svc.capture_zero()
-
-    @Slot(list)
-    def on_zero_captured(self, readings: list) -> None:
-        for reading in readings:
-            idx = reading.port - 1
-            if 0 <= idx < len(self._w.zero_inputs):
-                self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
-        self.on_save_registers()
-        self._show_toast(STRINGS["get_zero_toast"])
-        self._w.get_zero_btn.setEnabled(True)
-
-    @Slot(str)
-    def on_zero_failed(self, error_msg: str) -> None:
-        self._show_toast(
-            STRINGS["get_zero_error"].format(error_msg), success=False,
-        )
-        self._w.get_zero_btn.setEnabled(True)
+        try:
+            readings = self._w._measurement_svc.read_raw_values()
+            for reading in readings:
+                idx = reading.port - 1
+                if 0 <= idx < len(self._w.zero_inputs):
+                    self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
+            self.on_save_registers()
+            self._show_toast(STRINGS["get_zero_toast"])
+        except Exception as exc:
+            self._show_toast(
+                STRINGS["get_zero_error"].format(str(exc)), success=False,
+            )
+        finally:
+            self._w.get_zero_btn.setEnabled(True)
 
     @Slot()
     def on_save_registers(self) -> None:
