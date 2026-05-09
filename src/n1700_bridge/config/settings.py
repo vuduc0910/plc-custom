@@ -86,6 +86,15 @@ class AppSettings(BaseSettings):
         JudgmentGroupSettings(name="G3", output_cell="M2"),
     ]
     multiplier: float = 1.0
+    port_addresses: dict[str, str] = {
+        str(i): f"D{1198 + i * 2}" for i in range(1, 10)
+    }
+    port_verdict_addresses: dict[str, str] = {
+        str(i): f"D{1130 + i}" for i in range(1, 10)
+    }
+    judgment_addresses: dict[str, str] = {
+        "1": "D1300", "2": "D1301", "3": "D1302",
+    }
     settling_delay_ms: int = 500
     report_output_dir: Path = Path("./reports")
     log_dir: Path = Path("./logs")

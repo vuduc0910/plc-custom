@@ -75,13 +75,11 @@ class JudgmentPanel(QWidget):
         grid = QGridLayout()
         self.computed_labels: list[QLabel] = []
         self.verdict_labels: list[QLabel] = []
-        self.judgment_address_inputs: list[QLineEdit] = []
 
         headers = [
             "",
             STRINGS["computed_label"],
             STRINGS["judgment_label"],
-            STRINGS["judgment_address_label"],
         ]
         for col, text in enumerate(headers):
             lbl = QLabel(text)
@@ -105,15 +103,9 @@ class JudgmentPanel(QWidget):
             self.verdict_labels.append(verdict_lbl)
             grid.addWidget(verdict_lbl, row, 2)
 
-            jdg_inp = QLineEdit()
-            jdg_inp.setPlaceholderText(f"D{1300 + g}")
-            jdg_inp.setMaximumWidth(80)
-            self.judgment_address_inputs.append(jdg_inp)
-            grid.addWidget(jdg_inp, row, 3)
-
         self.save_judgment_btn = QPushButton(STRINGS["save_btn"])
         self.save_judgment_btn.setObjectName("save-btn")
-        grid.addWidget(self.save_judgment_btn, _NUM_GROUPS + 1, 3)
+        grid.addWidget(self.save_judgment_btn, _NUM_GROUPS + 1, 2)
 
         parent_layout.addLayout(grid)
 

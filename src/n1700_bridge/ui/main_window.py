@@ -102,24 +102,15 @@ class MainWindow(QMainWindow):
     def _setup_register_grid(self, layout: QVBoxLayout) -> None:
         grid = QGridLayout()
 
-        grid.addWidget(QLabel(STRINGS["register_address_label"]), 0, 0)
-        self.port_address_inputs: list[QLineEdit] = []
-        for i in range(_NUM_PORTS):
-            inp = QLineEdit()
-            inp.setPlaceholderText(f"D{100 + i * 2}")
-            inp.setMaximumWidth(80)
-            self.port_address_inputs.append(inp)
-            grid.addWidget(inp, 0, 1 + i)
-
-        grid.addWidget(QLabel(STRINGS["zero_label"]), 1, 0)
+        grid.addWidget(QLabel(STRINGS["zero_label"]), 0, 0)
         self.zero_inputs: list[QLineEdit] = []
         for i in range(_NUM_PORTS):
             inp = QLineEdit("0")
             inp.setMaximumWidth(80)
             self.zero_inputs.append(inp)
-            grid.addWidget(inp, 1, 1 + i)
+            grid.addWidget(inp, 0, 1 + i)
 
-        grid.addWidget(QLabel(STRINGS["judgment_label"]), 2, 0)
+        grid.addWidget(QLabel(STRINGS["judgment_label"]), 1, 0)
         self.port_verdict_labels: list[QLabel] = []
         for i in range(_NUM_PORTS):
             lbl = QLabel("--")
@@ -127,20 +118,11 @@ class MainWindow(QMainWindow):
             lbl.setObjectName("verdict-pending")
             lbl.setMaximumWidth(80)
             self.port_verdict_labels.append(lbl)
-            grid.addWidget(lbl, 2, 1 + i)
-
-        grid.addWidget(QLabel(STRINGS["verdict_address_label"]), 3, 0)
-        self.port_verdict_address_inputs: list[QLineEdit] = []
-        for i in range(_NUM_PORTS):
-            inp = QLineEdit()
-            inp.setPlaceholderText(f"D{1131 + i}")
-            inp.setMaximumWidth(80)
-            self.port_verdict_address_inputs.append(inp)
-            grid.addWidget(inp, 3, 1 + i)
+            grid.addWidget(lbl, 1, 1 + i)
 
         self.save_port_btn = QPushButton(STRINGS["save_btn"])
         self.save_port_btn.setObjectName("save-btn")
-        grid.addWidget(self.save_port_btn, 3, _NUM_PORTS + 1)
+        grid.addWidget(self.save_port_btn, 0, _NUM_PORTS + 1)
 
         layout.addLayout(grid)
 
@@ -213,27 +195,12 @@ class MainWindow(QMainWindow):
         self._handlers.on_barcode_reset()
 
     def _load_register_config(self, config: RegisterConfig) -> None:
-        for port, addr in config.port_addresses.items():
-            idx = port - 1
-            if 0 <= idx < len(self.port_address_inputs):
-                self.port_address_inputs[idx].setText(addr)
-
         for port, value in config.zeros.items():
             idx = port - 1
             if 0 <= idx < len(self.zero_inputs):
                 self.zero_inputs[idx].setText(str(value))
 
-        for port, addr in config.port_verdict_addresses.items():
-            idx = port - 1
-            if 0 <= idx < len(self.port_verdict_address_inputs):
-                self.port_verdict_address_inputs[idx].setText(addr)
-
         self.judgment_panel.multiplier_input.setText(str(config.multiplier))
-
-        for group, addr in config.judgment_addresses.items():
-            idx = group - 1
-            if 0 <= idx < len(self.judgment_panel.judgment_address_inputs):
-                self.judgment_panel.judgment_address_inputs[idx].setText(addr)
 
         panel_config = {
             "judgment_groups": config.judgment_groups,

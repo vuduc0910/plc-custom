@@ -31,6 +31,7 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
     n1700, excel, dll_client = _create_n1700_and_excel(settings, excel_path)
 
     register_mgr = RegisterManager.load_or_create("config/registers.json")
+    _apply_address_config(register_mgr, settings)
 
     judgment_groups = [
         JudgmentGroupConfig(
@@ -178,3 +179,26 @@ def _create_plc_thread(settings: AppSettings, plc: Any) -> tuple[QThread, PLCLis
     listener.moveToThread(plc_thread)
     plc_thread.started.connect(listener.start_polling)
     return plc_thread, listener
+
+
+def _apply_address_config(mgr: RegisterManager, settings: AppSettings) -> None:
+    from n1700_bridge.config.models import RegisterConfig
+
+    existing = mgr.get()
+    zeros = existing.zeros if existing else {}
+    multiplier = existing.multiplier if existing else settings.multiplier
+    template_path = existing.template_path if existing else None
+    template_input_cells = existing.template_input_cells if existing else []
+    judgment_groups = existing.judgment_groups if existing else []
+
+    config = RegisterConfig(
+        port_addresses={int(k): v for k, v in settings.port_addresses.items()},
+        port_verdict_addresses={int(k): v for k, v in settings.port_verdict_addresses.items()},
+        judgment_addresses={int(k): v for k, v in settings.judgment_addresses.items()},
+        multiplier=multiplier,
+        zeros=zeros,
+        template_path=template_path,
+        template_input_cells=template_input_cells,
+        judgment_groups=judgment_groups,
+    )
+    mgr.save(config)

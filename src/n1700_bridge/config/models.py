@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True)
 class RegisterConfig:
 
-    port_addresses: dict[int, str] = field(default_factory=dict)
+    port_addresses: dict[int, str] = field(default_factory=lambda: {
+        i: f"D{1198 + i * 2}" for i in range(1, 10)
+    })
     judgment_addresses: dict[int, str] = field(default_factory=dict)
     port_verdict_addresses: dict[int, str] = field(default_factory=lambda: {
         i: f"D{1130 + i}" for i in range(1, 10)

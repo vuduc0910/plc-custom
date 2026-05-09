@@ -90,14 +90,7 @@ class MainWindowHandlers:
         if not hasattr(self._w, "_register_mgr"):
             return
 
-        port_addresses = _collect_text_map(self._w.port_address_inputs)
         zeros = _collect_float_map(self._w.zero_inputs)
-        port_verdict_addresses = _collect_text_map(
-            self._w.port_verdict_address_inputs,
-        )
-        judgment_addresses = _collect_text_map(
-            self._w.judgment_panel.judgment_address_inputs,
-        )
         input_cells = self._w.judgment_panel.get_template_input_cells()
         template_path = self._w.judgment_panel.template_path_input.text().strip()
 
@@ -107,11 +100,8 @@ class MainWindowHandlers:
             multiplier = 1.0
 
         config = RegisterConfig(
-            port_addresses=port_addresses,
             multiplier=multiplier,
             zeros=zeros,
-            port_verdict_addresses=port_verdict_addresses,
-            judgment_addresses=judgment_addresses,
             template_path=template_path or None,
             template_input_cells=input_cells,
         )
@@ -230,14 +220,6 @@ def _poll_excel(w: MainWindow) -> None:
         w.excel_status.setText(f"● {STRINGS['status_excel_closed']}")
         w.excel_status.setStyleSheet("color: #F44336; font-weight: bold;")
 
-
-def _collect_text_map(inputs: list) -> dict[int, str]:
-    result: dict[int, str] = {}
-    for i, inp in enumerate(inputs, start=1):
-        text = inp.text().strip()
-        if text:
-            result[i] = text
-    return result
 
 
 def _collect_float_map(inputs: list) -> dict[int, float]:
