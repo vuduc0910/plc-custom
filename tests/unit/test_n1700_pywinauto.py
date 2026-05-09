@@ -49,12 +49,13 @@ class TestClickDataButton:
                 controller.click_data_button()
 
     def test_clicks_button_by_control_name(self) -> None:
-        """Should click button when found by control name."""
         controller = PywinautoN1700Controller(button_name="Data")
         mock_window = MagicMock()
         mock_button = MagicMock()
-        mock_button.exists.return_value = True
-        mock_window.child_window.return_value = mock_button
+        mock_rect = MagicMock()
+        mock_rect.left = 100
+        mock_button.rectangle.return_value = mock_rect
+        mock_window.children.return_value = [mock_button]
 
         with patch.object(controller, "_find_window", return_value=mock_window):
             controller.click_data_button()
@@ -62,14 +63,12 @@ class TestClickDataButton:
         mock_button.click_input.assert_called_once()
 
     def test_fallback_to_coords_when_button_not_found(self) -> None:
-        """Should use fallback_coords when button cannot be found."""
         controller = PywinautoN1700Controller(
             button_name="Data",
             fallback_coords=(500, 300),
         )
         mock_window = MagicMock()
-        # Both child_window strategies fail
-        mock_window.child_window.side_effect = Exception("not found")
+        mock_window.children.return_value = []
 
         with patch.object(controller, "_find_window", return_value=mock_window):
             controller.click_data_button()
@@ -77,26 +76,24 @@ class TestClickDataButton:
         mock_window.click_input.assert_called_once_with(coords=(500, 300))
 
     def test_raises_when_no_button_and_no_fallback(self) -> None:
-        """Should raise N1700Error when button not found and no fallback coords."""
         controller = PywinautoN1700Controller(
             button_name="Data",
             fallback_coords=None,
         )
         mock_window = MagicMock()
-        mock_window.child_window.side_effect = Exception("not found")
+        mock_window.children.return_value = []
 
         with patch.object(controller, "_find_window", return_value=mock_window):
             with pytest.raises(N1700Error, match="Could not find or click"):
                 controller.click_data_button()
 
     def test_raises_when_fallback_click_fails(self) -> None:
-        """Should raise N1700Error when fallback click also fails."""
         controller = PywinautoN1700Controller(
             button_name="Data",
             fallback_coords=(500, 300),
         )
         mock_window = MagicMock()
-        mock_window.child_window.side_effect = Exception("not found")
+        mock_window.children.return_value = []
         mock_window.click_input.side_effect = Exception("click failed")
 
         with patch.object(controller, "_find_window", return_value=mock_window):

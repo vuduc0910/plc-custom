@@ -1,5 +1,3 @@
-"""Integration test — full measurement flow with all fake adapters."""
-
 from pathlib import Path
 
 import pytest
@@ -8,21 +6,60 @@ from n1700_bridge.adapters.excel_xlwings import OpenpyxlExcelSource
 from n1700_bridge.adapters.n1700_fake import FakeN1700Controller
 from n1700_bridge.adapters.plc_fake import FakePLCClient
 from n1700_bridge.config.models import RegisterConfig
-from n1700_bridge.core.models import Measurement, Threshold, Verdict
-from n1700_bridge.services.judgment_service import JudgmentService
+from n1700_bridge.core.models import (
+    ExcelTemplateConfig,
+    JudgmentGroup,
+    JudgmentGroupConfig,
+    Measurement,
+    PortReading,
+    Verdict,
+)
+from n1700_bridge.services.excel_judgment_service import ExcelJudgmentService
 from n1700_bridge.services.measurement_service import MeasurementService
 from n1700_bridge.services.register_manager import RegisterManager
 
 
+class FakeExcelJudgmentService(ExcelJudgmentService):
+
+    def __init__(self, groups: list[JudgmentGroupConfig]) -> None:
+        template_config = ExcelTemplateConfig(
+            path="fake.xlsx",
+            sheet_name="Sheet1",
+            input_cells=tuple(f"B{i}" for i in range(2, 11)),
+        )
+        super().__init__(template_config, groups)
+
+    def open(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def judge(self, readings: list[PortReading]) -> list[JudgmentGroup]:
+        readings_map = {r.port: r.value for r in readings}
+        results: list[JudgmentGroup] = []
+        for group_cfg in self._groups:
+            computed = sum(
+                readings_map.get(i, 0.0) for i in range(1, 10)
+            ) / 9.0
+            is_ok = group_cfg.lower <= computed <= group_cfg.upper
+            verdict = Verdict.OK if is_ok else Verdict.NG
+            results.append(JudgmentGroup(
+                group_name=group_cfg.name,
+                output_cell=group_cfg.output_cell,
+                computed_value=computed,
+                verdict=verdict,
+            ))
+        return results
+
+
 @pytest.fixture()
 def excel_path(tmp_path: Path) -> Path:
-    """Create a temporary Excel file path."""
     return tmp_path / "test_output.xlsx"
 
 
 @pytest.fixture()
 def plc() -> FakePLCClient:
-    """Create a connected FakePLCClient."""
     client = FakePLCClient()
     client.connect()
     return client
@@ -30,19 +67,16 @@ def plc() -> FakePLCClient:
 
 @pytest.fixture()
 def n1700(excel_path: Path) -> FakeN1700Controller:
-    """Create a FakeN1700Controller."""
     return FakeN1700Controller(excel_path)
 
 
 @pytest.fixture()
 def excel_source(excel_path: Path) -> OpenpyxlExcelSource:
-    """Create an OpenpyxlExcelSource."""
     return OpenpyxlExcelSource(path=excel_path)
 
 
 @pytest.fixture()
 def register_mgr() -> RegisterManager:
-    """Create a RegisterManager with default addresses."""
     mgr = RegisterManager()
     config = RegisterConfig(
         port_addresses={i: f"D{100 + (i - 1) * 2}" for i in range(1, 10)},
@@ -52,47 +86,43 @@ def register_mgr() -> RegisterManager:
     return mgr
 
 
-@pytest.fixture()
-def thresholds() -> list[Threshold]:
-    """Create default thresholds for all 9 ports."""
-    return [Threshold(port=i, lower=-0.05, upper=0.05) for i in range(1, 10)]
+DEFAULT_GROUPS = [
+    JudgmentGroupConfig(name="G1", output_cell="K2", lower=-0.05, upper=0.05),
+    JudgmentGroupConfig(name="G2", output_cell="L2", lower=-0.05, upper=0.05),
+    JudgmentGroupConfig(name="G3", output_cell="M2", lower=-0.05, upper=0.05),
+]
 
 
 @pytest.fixture()
-def judgment_svc(thresholds: list[Threshold]) -> JudgmentService:
-    """Create a JudgmentService with default 3-3-3 grouping."""
-    return JudgmentService(thresholds, [(1, 2, 3), (4, 5, 6), (7, 8, 9)])
+def judgment_svc() -> FakeExcelJudgmentService:
+    return FakeExcelJudgmentService(DEFAULT_GROUPS)
 
 
 class TestEndToEndFake:
-    """Full flow integration tests with fake adapters."""
 
     def test_single_measurement_cycle(
         self,
         plc: FakePLCClient,
         n1700: FakeN1700Controller,
         excel_source: OpenpyxlExcelSource,
-        judgment_svc: JudgmentService,
+        judgment_svc: FakeExcelJudgmentService,
         register_mgr: RegisterManager,
     ) -> None:
-        """Fire trigger -> N1700 click -> read Excel -> judge -> write PLC."""
         svc = MeasurementService(
-            plc=plc,  # type: ignore[arg-type]
-            n1700=n1700,  # type: ignore[arg-type]
-            excel=excel_source,  # type: ignore[arg-type]
+            plc=plc,
+            n1700=n1700,
+            excel=excel_source,
             judgment=judgment_svc,
             registers=register_mgr,
-            settling_delay_ms=0,  # No delay for tests
+            settling_delay_ms=0,
         )
         svc.part_id = "TEST-001"
 
-        # Collect results via signal
         results: list[Measurement] = []
         errors: list[str] = []
         svc.measurement_complete.connect(lambda m: results.append(m))
         svc.measurement_failed.connect(lambda e: errors.append(e))
 
-        # Run the cycle directly (not in QThread for test simplicity)
         svc.run_cycle()
 
         assert len(errors) == 0, f"Unexpected errors: {errors}"
@@ -103,11 +133,9 @@ class TestEndToEndFake:
         assert len(measurement.readings) == 9
         assert len(measurement.judgments) == 3
 
-        # Verify PLC was written to
         words = plc.get_all_words()
-        assert "D100" in words  # Port 1 value
+        assert "D100" in words
         bits = plc.get_all_bits()
-        # At least one judgment bit should be set
         assert any(addr in bits for addr in ["M200", "M201", "M202"])
 
     def test_multiple_cycles(
@@ -115,14 +143,13 @@ class TestEndToEndFake:
         plc: FakePLCClient,
         n1700: FakeN1700Controller,
         excel_source: OpenpyxlExcelSource,
-        judgment_svc: JudgmentService,
+        judgment_svc: FakeExcelJudgmentService,
         register_mgr: RegisterManager,
     ) -> None:
-        """Run 5 measurement cycles without failure."""
         svc = MeasurementService(
-            plc=plc,  # type: ignore[arg-type]
-            n1700=n1700,  # type: ignore[arg-type]
-            excel=excel_source,  # type: ignore[arg-type]
+            plc=plc,
+            n1700=n1700,
+            excel=excel_source,
             judgment=judgment_svc,
             registers=register_mgr,
             settling_delay_ms=0,
@@ -146,14 +173,13 @@ class TestEndToEndFake:
         plc: FakePLCClient,
         n1700: FakeN1700Controller,
         excel_source: OpenpyxlExcelSource,
-        judgment_svc: JudgmentService,
+        judgment_svc: FakeExcelJudgmentService,
         register_mgr: RegisterManager,
     ) -> None:
-        """Verify PLC register values match measurement readings."""
         svc = MeasurementService(
-            plc=plc,  # type: ignore[arg-type]
-            n1700=n1700,  # type: ignore[arg-type]
-            excel=excel_source,  # type: ignore[arg-type]
+            plc=plc,
+            n1700=n1700,
+            excel=excel_source,
             judgment=judgment_svc,
             registers=register_mgr,
             settling_delay_ms=0,
@@ -167,7 +193,6 @@ class TestEndToEndFake:
         assert len(results) == 1
         measurement = results[0]
 
-        # Verify each port value was written
         words = plc.get_all_words()
         for reading in measurement.readings:
             addr = f"D{100 + (reading.port - 1) * 2}"
@@ -177,7 +202,6 @@ class TestEndToEndFake:
                 f"expected {expected}, got {words.get(addr)}"
             )
 
-        # Verify judgment bits
         bits = plc.get_all_bits()
         for i, judgment in enumerate(measurement.judgments, start=1):
             addr = f"M{199 + i}"
@@ -189,14 +213,13 @@ class TestEndToEndFake:
         plc: FakePLCClient,
         n1700: FakeN1700Controller,
         excel_source: OpenpyxlExcelSource,
-        judgment_svc: JudgmentService,
+        judgment_svc: FakeExcelJudgmentService,
     ) -> None:
-        """Measurement succeeds even without register config (just no PLC write)."""
         empty_mgr = RegisterManager()
         svc = MeasurementService(
-            plc=plc,  # type: ignore[arg-type]
-            n1700=n1700,  # type: ignore[arg-type]
-            excel=excel_source,  # type: ignore[arg-type]
+            plc=plc,
+            n1700=n1700,
+            excel=excel_source,
             judgment=judgment_svc,
             registers=empty_mgr,
             settling_delay_ms=0,

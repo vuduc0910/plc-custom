@@ -1,12 +1,9 @@
-"""Domain models for N1700 Bridge."""
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
 
 class Verdict(str, Enum):
-    """Measurement verdict."""
 
     OK = "OK"
     NG = "NG"
@@ -15,22 +12,23 @@ class Verdict(str, Enum):
 
 @dataclass(frozen=True)
 class PortReading:
-    """A single port measurement reading."""
 
-    port: int  # 1..9
+    port: int
     value: float
 
 
 @dataclass(frozen=True)
 class JudgmentGroup:
-    ports: tuple[int, ...]
-    formula: str
+
+    group_name: str
+    output_cell: str
     computed_value: float
     verdict: Verdict
 
 
 @dataclass
 class Measurement:
+
     timestamp: datetime
     part_id: str
     readings: list[PortReading]
@@ -38,8 +36,17 @@ class Measurement:
 
 
 @dataclass(frozen=True)
-class FormulaGroupConfig:
-    ports: tuple[int, ...]
-    formula: str
+class JudgmentGroupConfig:
+
+    name: str
+    output_cell: str
     lower: float
     upper: float
+
+
+@dataclass(frozen=True)
+class ExcelTemplateConfig:
+
+    path: str
+    sheet_name: str
+    input_cells: tuple[str, ...]

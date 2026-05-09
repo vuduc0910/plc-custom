@@ -6,6 +6,7 @@
     "trigger_bit": "M100",
     "done_bit": "M101",
     "barcode_ready_bit": "M102",
+    "rescan_bit": "D1002",
     "poll_interval_ms": 100,
     "use_fake": true
   },
@@ -22,82 +23,33 @@
     "path": "mocks/sample_n1700_output.xlsx",
     "sheet_name": "Sheet1",
     "header_row": 1,
-    "port_columns": [
-      "B",
-      "C",
-      "D",
-      "E",
-      "F",
-      "G",
-      "H",
-      "I",
-      "J"
-    ],
+    "port_columns": ["B", "C", "D", "E", "F", "G", "H", "I", "J"],
     "use_fake": true
   },
-  "thresholds": [
+  "excel_template": {
+    "path": "./config/template.xlsx",
+    "sheet_name": "Sheet1",
+    "input_cells": ["B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10"]
+  },
+  "judgment_groups": [
     {
-      "port": 1,
+      "name": "G1",
+      "output_cell": "K2",
       "lower": -0.05,
       "upper": 0.05
     },
     {
-      "port": 2,
+      "name": "G2",
+      "output_cell": "L2",
       "lower": -0.05,
       "upper": 0.05
     },
     {
-      "port": 3,
-      "lower": -0.05,
-      "upper": 0.05
-    },
-    {
-      "port": 4,
-      "lower": -0.05,
-      "upper": 0.05
-    },
-    {
-      "port": 5,
-      "lower": -0.05,
-      "upper": 0.05
-    },
-    {
-      "port": 6,
-      "lower": -0.05,
-      "upper": 0.05
-    },
-    {
-      "port": 7,
-      "lower": -0.05,
-      "upper": 0.05
-    },
-    {
-      "port": 8,
-      "lower": -0.05,
-      "upper": 0.05
-    },
-    {
-      "port": 9,
+      "name": "G3",
+      "output_cell": "M2",
       "lower": -0.05,
       "upper": 0.05
     }
-  ],
-  "judgment_grouping": [
-    [
-      1,
-      2,
-      3
-    ],
-    [
-      4,
-      5,
-      6
-    ],
-    [
-      7,
-      8,
-      9
-    ]
   ],
   "settling_delay_ms": 500,
   "report_output_dir": "./reports",

@@ -1,10 +1,3 @@
-"""SQLite persistence for measurement history.
-
-Persists every successful measurement cycle (timestamp, part_id, 9 port readings,
-3 judgment groups) into a local SQLite database so history survives app restarts
-and crashes.
-"""
-
 from __future__ import annotations
 
 import sqlite3
@@ -39,8 +32,8 @@ CREATE TABLE IF NOT EXISTS port_readings (
 CREATE TABLE IF NOT EXISTS judgments (
     measurement_id  INTEGER NOT NULL,
     group_index     INTEGER NOT NULL,
-    ports           TEXT    NOT NULL,
-    formula         TEXT    NOT NULL DEFAULT '',
+    group_name      TEXT    NOT NULL DEFAULT '',
+    output_cell     TEXT    NOT NULL DEFAULT '',
     computed_value  REAL    NOT NULL DEFAULT 0.0,
     verdict         TEXT    NOT NULL,
     PRIMARY KEY (measurement_id, group_index),
@@ -53,11 +46,6 @@ CREATE INDEX IF NOT EXISTS idx_measurements_part_id   ON measurements(part_id);
 
 
 class MeasurementStore:
-    """Thread-safe SQLite-backed store for Measurement records.
-
-    Opens a fresh connection per call (low throughput is fine and avoids
-    cross-thread issues with the default sqlite3 connection).
-    """
 
     def __init__(self, db_path: Path) -> None:
         self._db_path = Path(db_path)
@@ -66,10 +54,7 @@ class MeasurementStore:
         self._init_schema()
         logger.info("MeasurementStore initialized at {}", self._db_path)
 
-    # --- Public API ---
-
     def save(self, measurement: Measurement) -> int:
-        """Persist a measurement and return its new database id."""
         with self._lock, self._connect() as conn:
             cur = conn.execute(
                 "INSERT INTO measurements (timestamp, part_id) VALUES (?, ?)",
@@ -84,14 +69,15 @@ class MeasurementStore:
                 [(mid, r.port, r.value) for r in measurement.readings],
             )
             conn.executemany(
-                "INSERT INTO judgments (measurement_id, group_index, ports, formula, computed_value, verdict) "
+                "INSERT INTO judgments "
+                "(measurement_id, group_index, group_name, output_cell, computed_value, verdict) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 [
                     (
                         mid,
                         i,
-                        ",".join(str(p) for p in j.ports),
-                        j.formula,
+                        j.group_name,
+                        j.output_cell,
                         j.computed_value,
                         j.verdict.value,
                     )
@@ -107,7 +93,6 @@ class MeasurementStore:
         return mid
 
     def load_recent(self, limit: int = 1000) -> list[Measurement]:
-        """Return up to `limit` most recent measurements (oldest first)."""
         with self._lock, self._connect() as conn:
             rows = conn.execute(
                 "SELECT id, timestamp, part_id FROM measurements "
@@ -116,14 +101,15 @@ class MeasurementStore:
             ).fetchall()
 
             measurements: list[Measurement] = []
-            for mid, ts_str, part_id in reversed(rows):  # oldest first
+            for mid, ts_str, part_id in reversed(rows):
                 reading_rows = conn.execute(
                     "SELECT port, value FROM port_readings "
                     "WHERE measurement_id = ? ORDER BY port",
                     (mid,),
                 ).fetchall()
                 judgment_rows = conn.execute(
-                    "SELECT ports, formula, computed_value, verdict FROM judgments "
+                    "SELECT group_name, output_cell, computed_value, verdict "
+                    "FROM judgments "
                     "WHERE measurement_id = ? ORDER BY group_index",
                     (mid,),
                 ).fetchall()
@@ -131,12 +117,12 @@ class MeasurementStore:
                 readings = [PortReading(port=p, value=v) for p, v in reading_rows]
                 judgments = [
                     JudgmentGroup(
-                        ports=tuple(int(x) for x in ports_str.split(",")),
-                        formula=formula_str,
+                        group_name=gn,
+                        output_cell=oc,
                         computed_value=cv,
-                        verdict=Verdict(verdict_str),
+                        verdict=Verdict(vd),
                     )
-                    for ports_str, formula_str, cv, verdict_str in judgment_rows
+                    for gn, oc, cv, vd in judgment_rows
                 ]
 
                 measurements.append(
@@ -152,12 +138,9 @@ class MeasurementStore:
         return measurements
 
     def count(self) -> int:
-        """Return the total number of measurements in the database."""
         with self._lock, self._connect() as conn:
             row = conn.execute("SELECT COUNT(*) FROM measurements").fetchone()
             return int(row[0])
-
-    # --- Internal ---
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._db_path, check_same_thread=False)
@@ -167,15 +150,23 @@ class MeasurementStore:
     def _init_schema(self) -> None:
         with self._lock, self._connect() as conn:
             conn.executescript(_SCHEMA)
-            self._migrate_formula_columns(conn)
+            self._migrate_legacy_columns(conn)
             conn.commit()
 
     @staticmethod
-    def _migrate_formula_columns(conn: sqlite3.Connection) -> None:
+    def _migrate_legacy_columns(conn: sqlite3.Connection) -> None:
         cols = {
             row[1] for row in conn.execute("PRAGMA table_info(judgments)").fetchall()
         }
-        if "formula" not in cols:
-            conn.execute("ALTER TABLE judgments ADD COLUMN formula TEXT NOT NULL DEFAULT ''")
+        if "group_name" not in cols:
+            conn.execute(
+                "ALTER TABLE judgments ADD COLUMN group_name TEXT NOT NULL DEFAULT ''"
+            )
+        if "output_cell" not in cols:
+            conn.execute(
+                "ALTER TABLE judgments ADD COLUMN output_cell TEXT NOT NULL DEFAULT ''"
+            )
         if "computed_value" not in cols:
-            conn.execute("ALTER TABLE judgments ADD COLUMN computed_value REAL NOT NULL DEFAULT 0.0")
+            conn.execute(
+                "ALTER TABLE judgments ADD COLUMN computed_value REAL NOT NULL DEFAULT 0.0"
+            )

@@ -1,5 +1,3 @@
-"""Tests for MeasurementStore (SQLite persistence)."""
-
 from datetime import datetime
 from pathlib import Path
 
@@ -15,12 +13,20 @@ from n1700_bridge.services.measurement_store import MeasurementStore
 
 
 def _make_measurement(part_id: str = "P-001", offset: float = 0.0) -> Measurement:
-    """Build a sample 9-port / 3-group measurement."""
     readings = [PortReading(port=i, value=0.01 * i + offset) for i in range(1, 10)]
     judgments = [
-        JudgmentGroup(ports=(1, 2, 3), verdict=Verdict.OK),
-        JudgmentGroup(ports=(4, 5, 6), verdict=Verdict.NG),
-        JudgmentGroup(ports=(7, 8, 9), verdict=Verdict.OK),
+        JudgmentGroup(
+            group_name="G1", output_cell="K2",
+            computed_value=0.025, verdict=Verdict.OK,
+        ),
+        JudgmentGroup(
+            group_name="G2", output_cell="L2",
+            computed_value=0.15, verdict=Verdict.NG,
+        ),
+        JudgmentGroup(
+            group_name="G3", output_cell="M2",
+            computed_value=0.01, verdict=Verdict.OK,
+        ),
     ]
     return Measurement(
         timestamp=datetime(2026, 5, 1, 10, 0, 0),
@@ -69,7 +75,9 @@ class TestMeasurementStore:
         assert m.readings[0].port == 1
         assert m.readings[0].value == pytest.approx(0.01)
         assert len(m.judgments) == 3
-        assert m.judgments[0].ports == (1, 2, 3)
+        assert m.judgments[0].group_name == "G1"
+        assert m.judgments[0].output_cell == "K2"
+        assert m.judgments[0].computed_value == pytest.approx(0.025)
         assert m.judgments[0].verdict == Verdict.OK
         assert m.judgments[1].verdict == Verdict.NG
 
@@ -88,14 +96,12 @@ class TestMeasurementStore:
 
         loaded = store.load_recent(limit=3)
         assert len(loaded) == 3
-        # Should be the 3 most recent (oldest of those first)
         assert [m.part_id for m in loaded] == ["P-7", "P-8", "P-9"]
 
     def test_persists_across_instances(self, db_path: Path) -> None:
         store1 = MeasurementStore(db_path)
         store1.save(_make_measurement("PERSIST"))
 
-        # New instance pointing at the same file should see the data
         store2 = MeasurementStore(db_path)
         assert store2.count() == 1
         loaded = store2.load_recent()

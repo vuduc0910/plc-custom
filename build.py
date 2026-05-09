@@ -21,6 +21,7 @@ def build() -> None:
     # Data files to include
     datas = [
         (str(root / "config" / "config.example.json"), "config"),
+        (str(root / "config" / "template.xlsx"), "config"),
         (str(root / "mocks" / "sample_n1700_output.xlsx"), "mocks"),
         (str(root / "src" / "n1700_bridge" / "ui" / "resources" / "styles.qss"),
          str(Path("n1700_bridge") / "ui" / "resources")),
@@ -51,10 +52,12 @@ def build() -> None:
         "--hidden-import", "n1700_bridge.adapters.excel_xlwings",
         "--hidden-import", "n1700_bridge.services.measurement_service",
         "--hidden-import", "n1700_bridge.services.plc_listener",
-        "--hidden-import", "n1700_bridge.services.judgment_service",
+        "--hidden-import", "n1700_bridge.services.excel_judgment_service",
         "--hidden-import", "n1700_bridge.services.register_manager",
         "--hidden-import", "n1700_bridge.services.report_exporter",
         "--hidden-import", "n1700_bridge.ui.main_window",
+        "--hidden-import", "n1700_bridge.ui.handlers",
+        "--hidden-import", "n1700_bridge.ui.widgets.judgment_panel",
         "--hidden-import", "n1700_bridge.utils.qt_signals",
         "--hidden-import", "n1700_bridge.utils.logging_config",
         "--hidden-import", "pydantic_settings",

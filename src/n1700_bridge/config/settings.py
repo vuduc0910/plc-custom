@@ -1,5 +1,3 @@
-"""Application settings loaded from config.json and environment variables."""
-
 from pathlib import Path
 from typing import ClassVar
 
@@ -8,7 +6,6 @@ from pydantic_settings import BaseSettings, JsonConfigSettingsSource, PydanticBa
 
 
 class PLCSettings(BaseModel):
-    """PLC connection settings."""
 
     host: str = "192.168.1.10"
     port: int = 5007
@@ -23,22 +20,18 @@ class PLCSettings(BaseModel):
 
 
 class N1700Settings(BaseModel):
-    """N1700 application settings."""
 
     window_title_regex: str = "N1700.*"
     button_name: str = "Data"
     fallback_coords: tuple[int, int] | None = None
     use_fake: bool = True
-    # When True, bypass pywinauto + Excel and read directly via N1700.dll.
-    # Requires Windows + FTDI CDM21224 driver. Overrides use_fake for real hw.
     use_dll: bool = False
     dll_path: str = "N1700.dll"
     channel_count: int = 9
     channel_start_index: int = 1
 
 
-class ExcelSettings(BaseModel):
-    """Excel input file settings."""
+class ExcelInputSettings(BaseModel):
 
     path: str = "mocks/sample_n1700_output.xlsx"
     sheet_name: str = "Sheet1"
@@ -47,9 +40,19 @@ class ExcelSettings(BaseModel):
     use_fake: bool = True
 
 
-class FormulaGroupSettings(BaseModel):
-    ports: list[int]
-    formula: str
+class ExcelTemplateSettings(BaseModel):
+
+    path: str = "./config/template.xlsx"
+    sheet_name: str = "Sheet1"
+    input_cells: list[str] = [
+        "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10",
+    ]
+
+
+class JudgmentGroupSettings(BaseModel):
+
+    name: str
+    output_cell: str
     lower: float
     upper: float
 
@@ -76,11 +79,12 @@ class AppSettings(BaseSettings):
 
     plc: PLCSettings = PLCSettings()
     n1700: N1700Settings = N1700Settings()
-    excel_input: ExcelSettings = ExcelSettings()
-    formula_groups: list[FormulaGroupSettings] = [
-        FormulaGroupSettings(ports=[1, 2, 3, 4], formula="(p1+p2+p3+p4)/4", lower=-0.05, upper=0.05),
-        FormulaGroupSettings(ports=[5, 6, 7, 8], formula="(p5+p6+p7+p8)/4", lower=-0.05, upper=0.05),
-        FormulaGroupSettings(ports=[9], formula="p9", lower=-0.05, upper=0.05),
+    excel_input: ExcelInputSettings = ExcelInputSettings()
+    excel_template: ExcelTemplateSettings = ExcelTemplateSettings()
+    judgment_groups: list[JudgmentGroupSettings] = [
+        JudgmentGroupSettings(name="G1", output_cell="K2", lower=-0.05, upper=0.05),
+        JudgmentGroupSettings(name="G2", output_cell="L2", lower=-0.05, upper=0.05),
+        JudgmentGroupSettings(name="G3", output_cell="M2", lower=-0.05, upper=0.05),
     ]
     settling_delay_ms: int = 500
     report_output_dir: Path = Path("./reports")

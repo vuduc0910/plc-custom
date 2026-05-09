@@ -1,5 +1,3 @@
-"""Vietnamese UI strings. All user-facing text lives here."""
-
 STRINGS: dict[str, str] = {
     "window_title": "N1700 Bridge",
     "part_id_label": "Ma\u0303 con ha\u0300ng",
@@ -34,8 +32,17 @@ STRINGS: dict[str, str] = {
     "error_dll_timeout": "N1700 DLL timeout. Ki\u1ec3m tra k\u1ebft n\u1ed1i USB.",
     "error_dll_poll": "L\u1ed7i \u0111\u1ecdc d\u1eef li\u1ec7u t\u1eeb N1700 DLL.",
     "error_dll_general": "L\u1ed7i N1700 DLL.",
-    "formula_label": "C\u00f4ng th\u1ee9c",
+    "output_cell_label": "\u00d4 k\u1ebft qu\u1ea3",
     "lower_label": "Min",
     "upper_label": "Max",
     "computed_label": "K\u1ebft qu\u1ea3",
+    "template_label": "Template",
+    "template_browse_btn": "Ch\u1ecdn file...",
+    "template_sheet_label": "Sheet",
+    "template_input_label": "\u00d4 nh\u1eadp li\u1ec7u",
+    "group_name_label": "Nh\u00f3m",
+    "template_not_found": "Kh\u00f4ng t\u00ecm th\u1ea5y file template",
+    "zero_label": "Zero",
+    "part_id_column": "M\u00e3 h\u00e0ng",
+    "computed_default": "L\u1ea5y KQ t\u1eeb excel",
 }
