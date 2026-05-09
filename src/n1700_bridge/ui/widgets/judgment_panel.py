@@ -68,44 +68,30 @@ class JudgmentPanel(QWidget):
         self.multiplier_input = QLineEdit("1")
         self.multiplier_input.setMaximumWidth(150)
         row.addWidget(self.multiplier_input)
+
+        self.save_judgment_btn = QPushButton(STRINGS["save_btn"])
+        self.save_judgment_btn.setObjectName("save-btn")
+        row.addWidget(self.save_judgment_btn)
+
         row.addStretch()
         parent_layout.addLayout(row)
 
     def _setup_judgment_grid(self, parent_layout: QVBoxLayout) -> None:
         grid = QGridLayout()
-        self.computed_labels: list[QLabel] = []
         self.verdict_labels: list[QLabel] = []
 
-        headers = [
-            "",
-            STRINGS["computed_label"],
-            STRINGS["judgment_label"],
-        ]
-        for col, text in enumerate(headers):
-            lbl = QLabel(text)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            grid.addWidget(lbl, 0, col)
-
         for g in range(_NUM_GROUPS):
-            row = g + 1
-            grid.addWidget(QLabel(f"N{g + 1}"), row, 0)
-
-            computed_lbl = QLabel(STRINGS["computed_default"])
-            computed_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            computed_lbl.setMinimumWidth(120)
-            self.computed_labels.append(computed_lbl)
-            grid.addWidget(computed_lbl, row, 1)
+            name_lbl = QLabel(f"N{g + 1}")
+            name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            grid.addWidget(name_lbl, 0, g)
 
             verdict_lbl = QLabel("--")
             verdict_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             verdict_lbl.setObjectName("verdict-pending")
-            verdict_lbl.setMinimumWidth(60)
+            verdict_lbl.setMinimumWidth(80)
+            verdict_lbl.setMinimumHeight(32)
             self.verdict_labels.append(verdict_lbl)
-            grid.addWidget(verdict_lbl, row, 2)
-
-        self.save_judgment_btn = QPushButton(STRINGS["save_btn"])
-        self.save_judgment_btn.setObjectName("save-btn")
-        grid.addWidget(self.save_judgment_btn, _NUM_GROUPS + 1, 2)
+            grid.addWidget(verdict_lbl, 1, g)
 
         parent_layout.addLayout(grid)
 
@@ -119,7 +105,6 @@ class JudgmentPanel(QWidget):
         if path:
             self.template_path_input.setText(path)
 
-
     def get_template_input_cells(self) -> list[str]:
         raw = self.template_input_cells_input.text().strip()
         return parse_cell_range(raw)
@@ -132,8 +117,6 @@ class JudgmentPanel(QWidget):
                 continue
             if i >= len(self.verdict_labels):
                 break
-
-            self.computed_labels[i].setText(f"{jdg.computed_value:.6f}")
 
             verdict = jdg.verdict.value
             self.verdict_labels[i].setText(verdict)
