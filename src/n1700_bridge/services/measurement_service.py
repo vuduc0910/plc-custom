@@ -95,7 +95,6 @@ class MeasurementService(QObject):
         return list(self._history)
 
     def read_raw_values(self) -> list[PortReading]:
-        self._trigger_n1700_read(logger)
         return self._excel.read_latest_row()
 
     @Slot()
