@@ -84,6 +84,21 @@ class MainWindowHandlers:
         self._w.statusBar().showMessage(f"\u26a0 {display_msg}", 5000)
 
     @Slot()
+    def on_get_zero(self) -> None:
+        if not hasattr(self._w, "_measurement_svc"):
+            return
+        try:
+            readings = self._w._measurement_svc.read_raw_values()
+            for reading in readings:
+                idx = reading.port - 1
+                if 0 <= idx < len(self._w.zero_inputs):
+                    self._w.zero_inputs[idx].setText(str(reading.value))
+            self._w.statusBar().showMessage(STRINGS["get_zero_toast"], 3000)
+        except Exception as exc:
+            msg = STRINGS["get_zero_error"].format(str(exc))
+            self._w.statusBar().showMessage(msg, 5000)
+
+    @Slot()
     def on_save_registers(self) -> None:
         from n1700_bridge.config.models import RegisterConfig
 

@@ -120,9 +120,16 @@ class MainWindow(QMainWindow):
             self.port_verdict_labels.append(lbl)
             grid.addWidget(lbl, 1, 1 + i)
 
+        btn_layout = QHBoxLayout()
+        self.get_zero_btn = QPushButton(STRINGS["get_zero_btn"])
+        self.get_zero_btn.setObjectName("get-zero-btn")
+        btn_layout.addWidget(self.get_zero_btn)
+
         self.save_port_btn = QPushButton(STRINGS["save_btn"])
         self.save_port_btn.setObjectName("save-btn")
-        grid.addWidget(self.save_port_btn, 0, _NUM_PORTS + 1)
+        btn_layout.addWidget(self.save_port_btn)
+
+        grid.addLayout(btn_layout, 0, _NUM_PORTS + 1)
 
         layout.addLayout(grid)
 
@@ -179,6 +186,7 @@ class MainWindow(QMainWindow):
         measurement_svc.measurement_complete.connect(h.on_measurement_complete)
         measurement_svc.measurement_failed.connect(h.on_measurement_failed)
         self.manual_trigger_btn.clicked.connect(h.on_manual_trigger)
+        self.get_zero_btn.clicked.connect(h.on_get_zero)
         self.save_port_btn.clicked.connect(h.on_save_registers)
         self.judgment_panel.save_judgment_btn.clicked.connect(h.on_save_registers)
 

@@ -83,7 +83,7 @@ class ExcelJudgmentService:
             if self._wb is not None:
                 self._wb.close()
             if self._app is not None:
-                self._app.kill()
+                self._app.quit()
         except Exception:
             logger.warning("Error closing Excel template, ignoring")
         finally:

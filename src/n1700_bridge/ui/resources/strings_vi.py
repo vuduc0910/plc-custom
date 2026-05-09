@@ -46,4 +46,7 @@ STRINGS: dict[str, str] = {
     "part_id_column": "M\u00e3 h\u00e0ng",
     "computed_default": "L\u1ea5y KQ t\u1eeb excel",
     "verdict_address_label": "\u0110/c ph\u00e1n \u0111\u1ecbnh",
+    "get_zero_btn": "L\u1ea5y Zero",
+    "get_zero_toast": "\u0110\u00e3 l\u1ea5y gi\u00e1 tr\u1ecb Zero t\u1eeb N1700",
+    "get_zero_error": "L\u1ed7i l\u1ea5y Zero: {}",
 }

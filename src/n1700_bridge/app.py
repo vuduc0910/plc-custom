@@ -97,14 +97,6 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         "judgment": judgment,
     }
 
-    def _cleanup() -> None:
-        logger.info("Application shutting down, closing Excel template")
-        judgment.close()
-        if dll_client is not None:
-            dll_client.disconnect()
-
-    qt_app.aboutToQuit.connect(_cleanup)
-
     logger.info("Application built successfully")
     return qt_app, window
 
