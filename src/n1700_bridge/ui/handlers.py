@@ -85,40 +85,23 @@ class MainWindowHandlers:
 
     @Slot()
     def on_get_zero(self) -> None:
-        import concurrent.futures
-
         if not hasattr(self._w, "_measurement_svc"):
             return
 
         self._w.get_zero_btn.setEnabled(False)
-        self._w.statusBar().showMessage("Đang lấy Zero...", 10000)
-
-        timeout_sec = 5
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(self._w._measurement_svc.read_raw_values)
-            try:
-                readings = future.result(timeout=timeout_sec)
-            except concurrent.futures.TimeoutError:
-                future.cancel()
-                self._w.statusBar().showMessage(
-                    STRINGS["get_zero_error"].format("Timeout"), 5000,
-                )
-                self._w.get_zero_btn.setEnabled(True)
-                return
-            except Exception as exc:
-                self._w.statusBar().showMessage(
-                    STRINGS["get_zero_error"].format(str(exc)), 5000,
-                )
-                self._w.get_zero_btn.setEnabled(True)
-                return
-
-        for reading in readings:
-            idx = reading.port - 1
-            if 0 <= idx < len(self._w.zero_inputs):
-                self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
-
-        self._w.statusBar().showMessage(STRINGS["get_zero_toast"], 3000)
-        self._w.get_zero_btn.setEnabled(True)
+        try:
+            readings = self._w._measurement_svc.read_raw_values()
+            for reading in readings:
+                idx = reading.port - 1
+                if 0 <= idx < len(self._w.zero_inputs):
+                    self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
+            self._w.statusBar().showMessage(STRINGS["get_zero_toast"], 3000)
+        except Exception as exc:
+            self._w.statusBar().showMessage(
+                STRINGS["get_zero_error"].format(str(exc)), 5000,
+            )
+        finally:
+            self._w.get_zero_btn.setEnabled(True)
 
     @Slot()
     def on_save_registers(self) -> None:
