@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from PySide6.QtCore import Slot
+from PySide6.QtCore import QTimer, Slot
+from PySide6.QtWidgets import QLabel
 
 from n1700_bridge.ui.resources.strings_vi import STRINGS
 
@@ -18,6 +19,27 @@ class MainWindowHandlers:
 
     def __init__(self, window: MainWindow) -> None:
         self._w = window
+        self._toast_label: QLabel | None = None
+
+    def _show_toast(self, message: str, success: bool = True) -> None:
+        if self._toast_label is not None:
+            self._toast_label.deleteLater()
+
+        color = "#4CAF50" if success else "#F44336"
+        lbl = QLabel(message, self._w)
+        lbl.setStyleSheet(
+            f"background-color: {color}; color: white; padding: 8px 16px;"
+            f" border-radius: 4px; font-weight: bold; font-size: 13px;"
+        )
+        lbl.adjustSize()
+        lbl.move(
+            (self._w.width() - lbl.width()) // 2,
+            self._w.height() - lbl.height() - 40,
+        )
+        lbl.raise_()
+        lbl.show()
+        self._toast_label = lbl
+        QTimer.singleShot(3000, lbl.deleteLater)
 
     @Slot()
     def on_barcode_entered(self) -> None:
@@ -49,7 +71,7 @@ class MainWindowHandlers:
 
         history = self._w._measurement_svc.history
         if not history:
-            self._w.statusBar().showMessage(STRINGS["export_empty"], 3000)
+            self._show_toast(STRINGS["export_empty"], success=False)
             return
 
         try:
@@ -58,11 +80,11 @@ class MainWindowHandlers:
             exporter = ReportExporter(self._w._report_output_dir)
             filepath = exporter.export(history)
             msg = STRINGS["export_success"].format(filepath.name)
-            self._w.statusBar().showMessage(msg, 5000)
+            self._show_toast(msg)
             logger.info("Report exported via UI: {}", filepath)
         except Exception as e:
             msg = STRINGS["export_error"].format(str(e))
-            self._w.statusBar().showMessage(msg, 5000)
+            self._show_toast(msg, success=False)
             logger.error("Report export failed: {}", e)
 
     @Slot(object)
@@ -87,22 +109,25 @@ class MainWindowHandlers:
     def on_get_zero(self) -> None:
         if not hasattr(self._w, "_measurement_svc"):
             return
-
         self._w.get_zero_btn.setEnabled(False)
-        try:
-            readings = self._w._measurement_svc.read_raw_values()
-            for reading in readings:
-                idx = reading.port - 1
-                if 0 <= idx < len(self._w.zero_inputs):
-                    self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
-            self.on_save_registers()
-            self._w.statusBar().showMessage(STRINGS["get_zero_toast"], 3000)
-        except Exception as exc:
-            self._w.statusBar().showMessage(
-                STRINGS["get_zero_error"].format(str(exc)), 5000,
-            )
-        finally:
-            self._w.get_zero_btn.setEnabled(True)
+        self._w._measurement_svc.capture_zero()
+
+    @Slot(list)
+    def on_zero_captured(self, readings: list) -> None:
+        for reading in readings:
+            idx = reading.port - 1
+            if 0 <= idx < len(self._w.zero_inputs):
+                self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
+        self.on_save_registers()
+        self._show_toast(STRINGS["get_zero_toast"])
+        self._w.get_zero_btn.setEnabled(True)
+
+    @Slot(str)
+    def on_zero_failed(self, error_msg: str) -> None:
+        self._show_toast(
+            STRINGS["get_zero_error"].format(error_msg), success=False,
+        )
+        self._w.get_zero_btn.setEnabled(True)
 
     @Slot()
     def on_save_registers(self) -> None:
@@ -134,7 +159,7 @@ class MainWindowHandlers:
         config = RegisterConfig(**base)
         self._w._register_mgr.save(config)
         self._sync_judgment_from_ui()
-        self._w.statusBar().showMessage(STRINGS["saved_toast"], 3000)
+        self._show_toast(STRINGS["saved_toast"])
 
     def _sync_judgment_from_ui(self) -> None:
         from n1700_bridge.core.models import ExcelTemplateConfig, JudgmentGroupConfig

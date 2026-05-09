@@ -27,6 +27,8 @@ class MeasurementService(QObject):
     measurement_started = Signal()
     measurement_complete = Signal(object)
     measurement_failed = Signal(str)
+    zero_captured = Signal(list)
+    zero_failed = Signal(str)
 
     def __init__(
         self,
@@ -96,6 +98,14 @@ class MeasurementService(QObject):
 
     def read_raw_values(self) -> list[PortReading]:
         return self._excel.read_latest_row()
+
+    @Slot()
+    def capture_zero(self) -> None:
+        try:
+            readings = self._excel.read_latest_row()
+            self.zero_captured.emit(readings)
+        except Exception as exc:
+            self.zero_failed.emit(str(exc))
 
     @Slot()
     def run_cycle(self) -> None:
