@@ -59,6 +59,7 @@ class JudgmentGroupSettings(BaseModel):
 
 class AppSettings(BaseSettings):
 
+    model_config = {"extra": "ignore"}
     _json_file: ClassVar[str] = "config/config.json"
 
     @classmethod
@@ -86,6 +87,7 @@ class AppSettings(BaseSettings):
         JudgmentGroupSettings(name="G2", output_cell="L2", lower=-0.05, upper=0.05),
         JudgmentGroupSettings(name="G3", output_cell="M2", lower=-0.05, upper=0.05),
     ]
+    multiplier: float = 1.0
     settling_delay_ms: int = 500
     report_output_dir: Path = Path("./reports")
     log_dir: Path = Path("./logs")
