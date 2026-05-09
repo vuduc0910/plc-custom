@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
@@ -119,9 +119,28 @@ class MainWindow(QMainWindow):
             self.zero_inputs.append(inp)
             grid.addWidget(inp, 1, 1 + i)
 
+        grid.addWidget(QLabel(STRINGS["judgment_label"]), 2, 0)
+        self.port_verdict_labels: list[QLabel] = []
+        for i in range(_NUM_PORTS):
+            lbl = QLabel("--")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setObjectName("verdict-pending")
+            lbl.setMaximumWidth(80)
+            self.port_verdict_labels.append(lbl)
+            grid.addWidget(lbl, 2, 1 + i)
+
+        grid.addWidget(QLabel(STRINGS["verdict_address_label"]), 3, 0)
+        self.port_verdict_address_inputs: list[QLineEdit] = []
+        for i in range(_NUM_PORTS):
+            inp = QLineEdit()
+            inp.setPlaceholderText(f"D{1131 + i}")
+            inp.setMaximumWidth(80)
+            self.port_verdict_address_inputs.append(inp)
+            grid.addWidget(inp, 3, 1 + i)
+
         self.save_port_btn = QPushButton(STRINGS["save_btn"])
         self.save_port_btn.setObjectName("save-btn")
-        grid.addWidget(self.save_port_btn, 1, _NUM_PORTS + 1)
+        grid.addWidget(self.save_port_btn, 3, _NUM_PORTS + 1)
 
         layout.addLayout(grid)
 
@@ -203,6 +222,11 @@ class MainWindow(QMainWindow):
             idx = port - 1
             if 0 <= idx < len(self.zero_inputs):
                 self.zero_inputs[idx].setText(str(value))
+
+        for port, addr in config.port_verdict_addresses.items():
+            idx = port - 1
+            if 0 <= idx < len(self.port_verdict_address_inputs):
+                self.port_verdict_address_inputs[idx].setText(addr)
 
         self.judgment_panel.multiplier_input.setText(str(config.multiplier))
 

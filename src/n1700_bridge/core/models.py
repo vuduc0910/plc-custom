@@ -18,6 +18,13 @@ class PortReading:
 
 
 @dataclass(frozen=True)
+class PortVerdict:
+
+    port: int
+    verdict: Verdict
+
+
+@dataclass(frozen=True)
 class JudgmentGroup:
 
     group_name: str
@@ -33,6 +40,7 @@ class Measurement:
     part_id: str
     readings: list[PortReading]
     judgments: list[JudgmentGroup] = field(default_factory=list)
+    port_verdicts: list[PortVerdict] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -40,8 +48,6 @@ class JudgmentGroupConfig:
 
     name: str
     output_cell: str
-    lower: float
-    upper: float
 
 
 @dataclass(frozen=True)
@@ -50,3 +56,6 @@ class ExcelTemplateConfig:
     path: str
     sheet_name: str
     input_cells: tuple[str, ...]
+    port_verdict_cells: tuple[str, ...] = (
+        "H2", "H3", "H4", "H5", "H6", "H7", "H8", "H9", "H10",
+    )

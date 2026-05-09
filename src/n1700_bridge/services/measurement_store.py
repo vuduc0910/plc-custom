@@ -11,6 +11,7 @@ from n1700_bridge.core.models import (
     JudgmentGroup,
     Measurement,
     PortReading,
+    PortVerdict,
     Verdict,
 )
 
@@ -25,6 +26,14 @@ CREATE TABLE IF NOT EXISTS port_readings (
     measurement_id  INTEGER NOT NULL,
     port            INTEGER NOT NULL,
     value           REAL    NOT NULL,
+    PRIMARY KEY (measurement_id, port),
+    FOREIGN KEY (measurement_id) REFERENCES measurements(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS port_verdicts (
+    measurement_id  INTEGER NOT NULL,
+    port            INTEGER NOT NULL,
+    verdict         TEXT    NOT NULL,
     PRIMARY KEY (measurement_id, port),
     FOREIGN KEY (measurement_id) REFERENCES measurements(id) ON DELETE CASCADE
 );
@@ -69,6 +78,11 @@ class MeasurementStore:
                 [(mid, r.port, r.value) for r in measurement.readings],
             )
             conn.executemany(
+                "INSERT INTO port_verdicts (measurement_id, port, verdict) "
+                "VALUES (?, ?, ?)",
+                [(mid, pv.port, pv.verdict.value) for pv in measurement.port_verdicts],
+            )
+            conn.executemany(
                 "INSERT INTO judgments "
                 "(measurement_id, group_index, group_name, output_cell, computed_value, verdict) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
@@ -107,6 +121,11 @@ class MeasurementStore:
                     "WHERE measurement_id = ? ORDER BY port",
                     (mid,),
                 ).fetchall()
+                verdict_rows = conn.execute(
+                    "SELECT port, verdict FROM port_verdicts "
+                    "WHERE measurement_id = ? ORDER BY port",
+                    (mid,),
+                ).fetchall()
                 judgment_rows = conn.execute(
                     "SELECT group_name, output_cell, computed_value, verdict "
                     "FROM judgments "
@@ -115,6 +134,9 @@ class MeasurementStore:
                 ).fetchall()
 
                 readings = [PortReading(port=p, value=v) for p, v in reading_rows]
+                port_verdicts = [
+                    PortVerdict(port=p, verdict=Verdict(v)) for p, v in verdict_rows
+                ]
                 judgments = [
                     JudgmentGroup(
                         group_name=gn,
@@ -131,6 +153,7 @@ class MeasurementStore:
                         part_id=part_id,
                         readings=readings,
                         judgments=judgments,
+                        port_verdicts=port_verdicts,
                     )
                 )
 
@@ -158,6 +181,24 @@ class MeasurementStore:
         cols = {
             row[1] for row in conn.execute("PRAGMA table_info(judgments)").fetchall()
         }
+
+        if "ports" in cols or "formula" in cols:
+            conn.execute("DROP TABLE IF EXISTS judgments")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS judgments (
+                    measurement_id  INTEGER NOT NULL,
+                    group_index     INTEGER NOT NULL,
+                    group_name      TEXT    NOT NULL DEFAULT '',
+                    output_cell     TEXT    NOT NULL DEFAULT '',
+                    computed_value  REAL    NOT NULL DEFAULT 0.0,
+                    verdict         TEXT    NOT NULL,
+                    PRIMARY KEY (measurement_id, group_index),
+                    FOREIGN KEY (measurement_id)
+                        REFERENCES measurements(id) ON DELETE CASCADE
+                )
+            """)
+            return
+
         if "group_name" not in cols:
             conn.execute(
                 "ALTER TABLE judgments ADD COLUMN group_name TEXT NOT NULL DEFAULT ''"

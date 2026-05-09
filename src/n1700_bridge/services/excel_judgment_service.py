@@ -11,6 +11,7 @@ from n1700_bridge.core.models import (
     JudgmentGroup,
     JudgmentGroupConfig,
     PortReading,
+    PortVerdict,
     Verdict,
 )
 
@@ -22,6 +23,17 @@ _DECIMAL_PLACES = 6
 
 class ExcelJudgmentError(Exception):
     pass
+
+
+class JudgmentResult:
+
+    def __init__(
+        self,
+        groups: list[JudgmentGroup],
+        port_verdicts: list[PortVerdict],
+    ) -> None:
+        self.groups = groups
+        self.port_verdicts = port_verdicts
 
 
 class ExcelJudgmentService:
@@ -71,7 +83,7 @@ class ExcelJudgmentService:
             if self._wb is not None:
                 self._wb.close()
             if self._app is not None:
-                self._app.quit()
+                self._app.kill()
         except Exception:
             logger.warning("Error closing Excel template, ignoring")
         finally:
@@ -79,13 +91,15 @@ class ExcelJudgmentService:
             self._app = None
             self._sheet = None
 
-    def judge(self, readings: list[PortReading]) -> list[JudgmentGroup]:
+    def judge(self, readings: list[PortReading]) -> JudgmentResult:
         if self._sheet is None:
             self.open()
         assert self._sheet is not None
 
         self._write_inputs(readings)
-        return self._read_outputs()
+        groups = self._read_group_verdicts()
+        port_verdicts = self._read_port_verdicts()
+        return JudgmentResult(groups=groups, port_verdicts=port_verdicts)
 
     def _write_inputs(self, readings: list[PortReading]) -> None:
         assert self._sheet is not None
@@ -99,15 +113,14 @@ class ExcelJudgmentService:
 
         logger.debug("Wrote {} readings to template input cells", len(readings))
 
-    def _read_outputs(self) -> list[JudgmentGroup]:
+    def _read_group_verdicts(self) -> list[JudgmentGroup]:
         assert self._sheet is not None
         results: list[JudgmentGroup] = []
 
         for group_cfg in self._groups:
             raw_value = self._sheet.range(group_cfg.output_cell).value
             computed = _safe_float(raw_value)
-            is_ok = group_cfg.lower <= computed <= group_cfg.upper
-            verdict = Verdict.OK if is_ok else Verdict.NG
+            verdict = Verdict.OK if computed == 1.0 else Verdict.NG
 
             results.append(JudgmentGroup(
                 group_name=group_cfg.name,
@@ -117,15 +130,26 @@ class ExcelJudgmentService:
             ))
 
             logger.debug(
-                "Group {} cell='{}' = {:.{prec}f} [{}, {}] -> {}",
+                "Group {} cell='{}' = {} -> {}",
                 group_cfg.name,
                 group_cfg.output_cell,
                 computed,
-                group_cfg.lower,
-                group_cfg.upper,
                 verdict.value,
-                prec=_DECIMAL_PLACES,
             )
+
+        return results
+
+    def _read_port_verdicts(self) -> list[PortVerdict]:
+        assert self._sheet is not None
+        verdict_cells = self._template_config.port_verdict_cells
+        results: list[PortVerdict] = []
+
+        for i, cell in enumerate(verdict_cells):
+            raw = self._sheet.range(cell).value
+            val = _safe_float(raw)
+            verdict = Verdict.OK if val == 1.0 else Verdict.NG
+            results.append(PortVerdict(port=i + 1, verdict=verdict))
+            logger.debug("Port {} cell='{}' -> {}", i + 1, cell, verdict.value)
 
         return results
 

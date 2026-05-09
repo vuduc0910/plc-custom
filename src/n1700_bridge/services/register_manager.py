@@ -45,6 +45,9 @@ class RegisterManager:
                     judgment_addresses={
                         int(k): v for k, v in data.get("judgment_addresses", {}).items()
                     },
+                    port_verdict_addresses={
+                        int(k): v for k, v in data.get("port_verdict_addresses", {}).items()
+                    },
                     multiplier=float(data.get("multiplier", 1.0)),
                     zeros={
                         int(k): float(v) for k, v in data.get("zeros", {}).items()
@@ -52,6 +55,7 @@ class RegisterManager:
                     judgment_groups=data.get("judgment_groups", []),
                     template_path=data.get("template_path"),
                     template_input_cells=data.get("template_input_cells", []),
+                    port_verdict_cells=data.get("port_verdict_cells", []),
                     part_id_address=data.get("part_id_address"),
                 )
                 mgr._config = config
@@ -74,6 +78,9 @@ class RegisterManager:
                 "judgment_addresses": {
                     str(k): v for k, v in config.judgment_addresses.items()
                 },
+                "port_verdict_addresses": {
+                    str(k): v for k, v in config.port_verdict_addresses.items()
+                },
                 "multiplier": config.multiplier,
                 "zeros": {
                     str(k): v for k, v in config.zeros.items()
@@ -81,6 +88,7 @@ class RegisterManager:
                 "judgment_groups": config.judgment_groups,
                 "template_path": config.template_path,
                 "template_input_cells": config.template_input_cells,
+                "port_verdict_cells": config.port_verdict_cells,
                 "part_id_address": config.part_id_address,
             }
             self._persist_path.write_text(json.dumps(data, indent=2))

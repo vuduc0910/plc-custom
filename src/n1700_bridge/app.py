@@ -32,20 +32,19 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
 
     register_mgr = RegisterManager.load_or_create("config/registers.json")
 
+    judgment_groups = [
+        JudgmentGroupConfig(
+            name=g.name,
+            output_cell=g.output_cell,
+        )
+        for g in settings.judgment_groups
+    ]
+
     template_config = ExcelTemplateConfig(
         path=settings.excel_template.path,
         sheet_name=settings.excel_template.sheet_name,
         input_cells=tuple(settings.excel_template.input_cells),
     )
-    judgment_groups = [
-        JudgmentGroupConfig(
-            name=g.name,
-            output_cell=g.output_cell,
-            lower=g.lower,
-            upper=g.upper,
-        )
-        for g in settings.judgment_groups
-    ]
     judgment = ExcelJudgmentService(template_config, judgment_groups)
 
     store = MeasurementStore(settings.db_path)
@@ -96,6 +95,14 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
         "dll_client": dll_client,
         "judgment": judgment,
     }
+
+    def _cleanup() -> None:
+        logger.info("Application shutting down, closing Excel template")
+        judgment.close()
+        if dll_client is not None:
+            dll_client.disconnect()
+
+    qt_app.aboutToQuit.connect(_cleanup)
 
     logger.info("Application built successfully")
     return qt_app, window

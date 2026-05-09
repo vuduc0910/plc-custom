@@ -73,16 +73,12 @@ class JudgmentPanel(QWidget):
 
     def _setup_judgment_grid(self, parent_layout: QVBoxLayout) -> None:
         grid = QGridLayout()
-        self.lower_inputs: list[QLineEdit] = []
-        self.upper_inputs: list[QLineEdit] = []
         self.computed_labels: list[QLabel] = []
         self.verdict_labels: list[QLabel] = []
         self.judgment_address_inputs: list[QLineEdit] = []
 
         headers = [
             "",
-            STRINGS["lower_label"],
-            STRINGS["upper_label"],
             STRINGS["computed_label"],
             STRINGS["judgment_label"],
             STRINGS["judgment_address_label"],
@@ -92,45 +88,32 @@ class JudgmentPanel(QWidget):
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             grid.addWidget(lbl, 0, col)
 
-        default_lowers = ["-0.05", "-0.05", "-0.1"]
-        default_uppers = ["0.05", "0.05", "0.1"]
-
         for g in range(_NUM_GROUPS):
             row = g + 1
             grid.addWidget(QLabel(f"N{g + 1}"), row, 0)
-
-            lower_inp = QLineEdit(default_lowers[g])
-            lower_inp.setMaximumWidth(80)
-            self.lower_inputs.append(lower_inp)
-            grid.addWidget(lower_inp, row, 1)
-
-            upper_inp = QLineEdit(default_uppers[g])
-            upper_inp.setMaximumWidth(80)
-            self.upper_inputs.append(upper_inp)
-            grid.addWidget(upper_inp, row, 2)
 
             computed_lbl = QLabel(STRINGS["computed_default"])
             computed_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             computed_lbl.setMinimumWidth(120)
             self.computed_labels.append(computed_lbl)
-            grid.addWidget(computed_lbl, row, 3)
+            grid.addWidget(computed_lbl, row, 1)
 
             verdict_lbl = QLabel("--")
             verdict_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             verdict_lbl.setObjectName("verdict-pending")
             verdict_lbl.setMinimumWidth(60)
             self.verdict_labels.append(verdict_lbl)
-            grid.addWidget(verdict_lbl, row, 4)
+            grid.addWidget(verdict_lbl, row, 2)
 
             jdg_inp = QLineEdit()
             jdg_inp.setPlaceholderText(f"D{1300 + g}")
             jdg_inp.setMaximumWidth(80)
             self.judgment_address_inputs.append(jdg_inp)
-            grid.addWidget(jdg_inp, row, 5)
+            grid.addWidget(jdg_inp, row, 3)
 
         self.save_judgment_btn = QPushButton(STRINGS["save_btn"])
         self.save_judgment_btn.setObjectName("save-btn")
-        grid.addWidget(self.save_judgment_btn, _NUM_GROUPS + 1, 5)
+        grid.addWidget(self.save_judgment_btn, _NUM_GROUPS + 1, 3)
 
         parent_layout.addLayout(grid)
 
@@ -143,6 +126,7 @@ class JudgmentPanel(QWidget):
         )
         if path:
             self.template_path_input.setText(path)
+
 
     def get_template_input_cells(self) -> list[str]:
         raw = self.template_input_cells_input.text().strip()
@@ -171,14 +155,6 @@ class JudgmentPanel(QWidget):
             self.verdict_labels[i].style().polish(self.verdict_labels[i])
 
     def load_from_config(self, config: dict) -> None:
-        for i, fg in enumerate(config.get("judgment_groups", [])):
-            if i >= _NUM_GROUPS:
-                break
-            if "lower" in fg:
-                self.lower_inputs[i].setText(str(fg["lower"]))
-            if "upper" in fg:
-                self.upper_inputs[i].setText(str(fg["upper"]))
-
         template = config.get("template_path")
         if template:
             self.template_path_input.setText(str(template))

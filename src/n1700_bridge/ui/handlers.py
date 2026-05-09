@@ -76,6 +76,7 @@ class MainWindowHandlers:
         values = [r.value for r in measurement.readings]
         self._w.add_measurement_row(time_str, measurement.part_id, values)
         self._w.judgment_panel.update_verdicts(measurement.judgments)
+        self._update_port_verdicts(measurement)
 
     @Slot(str)
     def on_measurement_failed(self, error_msg: str) -> None:
@@ -91,10 +92,12 @@ class MainWindowHandlers:
 
         port_addresses = _collect_text_map(self._w.port_address_inputs)
         zeros = _collect_float_map(self._w.zero_inputs)
+        port_verdict_addresses = _collect_text_map(
+            self._w.port_verdict_address_inputs,
+        )
         judgment_addresses = _collect_text_map(
             self._w.judgment_panel.judgment_address_inputs,
         )
-        judgment_groups = _collect_judgment_groups(self._w.judgment_panel)
         input_cells = self._w.judgment_panel.get_template_input_cells()
         template_path = self._w.judgment_panel.template_path_input.text().strip()
 
@@ -107,8 +110,8 @@ class MainWindowHandlers:
             port_addresses=port_addresses,
             multiplier=multiplier,
             zeros=zeros,
+            port_verdict_addresses=port_verdict_addresses,
             judgment_addresses=judgment_addresses,
-            judgment_groups=judgment_groups,
             template_path=template_path or None,
             template_input_cells=input_cells,
         )
@@ -126,20 +129,10 @@ class MainWindowHandlers:
         existing_groups = self._w._measurement_svc.judgment_service.groups
         groups: list[JudgmentGroupConfig] = []
         for i in range(_NUM_GROUPS):
-            try:
-                lower = float(panel.lower_inputs[i].text())
-            except ValueError:
-                lower = 0.0
-            try:
-                upper = float(panel.upper_inputs[i].text())
-            except ValueError:
-                upper = 0.0
             output_cell = existing_groups[i].output_cell if i < len(existing_groups) else ""
             groups.append(JudgmentGroupConfig(
                 name=f"G{i + 1}",
                 output_cell=output_cell,
-                lower=lower,
-                upper=upper,
             ))
         self._w._measurement_svc.update_judgment_groups(groups)
 
@@ -153,6 +146,25 @@ class MainWindowHandlers:
                 input_cells=tuple(input_cells),
             )
             self._w._measurement_svc.judgment_service.update_template(template_cfg)
+
+    def _update_port_verdicts(self, measurement) -> None:
+        from n1700_bridge.core.models import Measurement
+
+        if not isinstance(measurement, Measurement):
+            return
+        for pv in measurement.port_verdicts:
+            idx = pv.port - 1
+            if 0 <= idx < len(self._w.port_verdict_labels):
+                lbl = self._w.port_verdict_labels[idx]
+                lbl.setText(pv.verdict.value)
+                if pv.verdict.value == "OK":
+                    lbl.setObjectName("verdict-ok")
+                elif pv.verdict.value == "NG":
+                    lbl.setObjectName("verdict-ng")
+                else:
+                    lbl.setObjectName("verdict-pending")
+                lbl.style().unpolish(lbl)
+                lbl.style().polish(lbl)
 
     @Slot()
     def poll_status(self) -> None:
@@ -240,14 +252,3 @@ def _collect_float_map(inputs: list) -> dict[int, float]:
     return result
 
 
-def _collect_judgment_groups(panel: object) -> list[dict[str, object]]:
-    from n1700_bridge.ui.widgets.judgment_panel import JudgmentPanel
-
-    assert isinstance(panel, JudgmentPanel)
-    groups: list[dict[str, object]] = []
-    for i in range(_NUM_GROUPS):
-        groups.append({
-            "lower": float(panel.lower_inputs[i].text() or "0"),
-            "upper": float(panel.upper_inputs[i].text() or "0"),
-        })
-    return groups

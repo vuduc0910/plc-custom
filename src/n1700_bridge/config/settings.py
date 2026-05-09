@@ -53,8 +53,6 @@ class JudgmentGroupSettings(BaseModel):
 
     name: str
     output_cell: str
-    lower: float
-    upper: float
 
 
 class AppSettings(BaseSettings):
@@ -83,9 +81,9 @@ class AppSettings(BaseSettings):
     excel_input: ExcelInputSettings = ExcelInputSettings()
     excel_template: ExcelTemplateSettings = ExcelTemplateSettings()
     judgment_groups: list[JudgmentGroupSettings] = [
-        JudgmentGroupSettings(name="G1", output_cell="K2", lower=-0.05, upper=0.05),
-        JudgmentGroupSettings(name="G2", output_cell="L2", lower=-0.05, upper=0.05),
-        JudgmentGroupSettings(name="G3", output_cell="M2", lower=-0.05, upper=0.05),
+        JudgmentGroupSettings(name="G1", output_cell="K2"),
+        JudgmentGroupSettings(name="G2", output_cell="L2"),
+        JudgmentGroupSettings(name="G3", output_cell="M2"),
     ]
     multiplier: float = 1.0
     settling_delay_ms: int = 500

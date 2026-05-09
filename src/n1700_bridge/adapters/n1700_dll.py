@@ -265,9 +265,8 @@ class DllN1700Source:
             try:
                 value = self._client.poll_data(ch)
             except N1700Error as e:
-                raise ExcelSourceError(
-                    f"Failed to poll channel {ch}: {e}"
-                ) from e
+                logger.warning("Channel {} poll failed, using 0.0: {}", ch, e)
+                value = 0.0
             readings.append(PortReading(port=i + 1, value=value))
 
         logger.debug(

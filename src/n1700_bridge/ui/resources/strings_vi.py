@@ -45,4 +45,5 @@ STRINGS: dict[str, str] = {
     "zero_label": "Zero",
     "part_id_column": "M\u00e3 h\u00e0ng",
     "computed_default": "L\u1ea5y KQ t\u1eeb excel",
+    "verdict_address_label": "\u0110/c ph\u00e1n \u0111\u1ecbnh",
 }

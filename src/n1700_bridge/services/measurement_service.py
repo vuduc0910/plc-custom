@@ -138,8 +138,8 @@ class MeasurementService(QObject):
         return self._apply_calibration(raw_readings, zeros, multiplier)
 
     def _evaluate_judgments(
-        self, log: logger, readings: list[PortReading],  # type: ignore[type-arg]
-    ) -> list:
+        self, log: logger, readings: list[PortReading],
+    ):
         log.debug("Computing judgments via Excel template")
         return self._judgment.judge(readings)
 
@@ -147,13 +147,17 @@ class MeasurementService(QObject):
     def _build_measurement(
         part_id: str,
         readings: list[PortReading],
-        judgments: list,
+        result,
     ) -> Measurement:
+        from n1700_bridge.services.excel_judgment_service import JudgmentResult
+        groups = result.groups if isinstance(result, JudgmentResult) else []
+        port_verdicts = result.port_verdicts if isinstance(result, JudgmentResult) else []
         return Measurement(
             timestamp=datetime.now(),
             part_id=part_id,
             readings=readings,
-            judgments=judgments,
+            judgments=groups,
+            port_verdicts=port_verdicts,
         )
 
     def _write_results_to_plc(
@@ -205,10 +209,15 @@ class MeasurementService(QObject):
                 int_val = int(reading.value * 10000)
                 self._plc.write_word(addr, int_val)
 
+        for pv in measurement.port_verdicts:
+            addr = reg_config.port_verdict_addresses.get(pv.port)
+            if addr:
+                self._plc.write_word(addr, 1 if pv.verdict == Verdict.OK else 0)
+
         for i, judgment in enumerate(measurement.judgments, start=1):
             addr = reg_config.judgment_addresses.get(i)
             if addr:
-                self._plc.write_bit(addr, judgment.verdict == Verdict.OK)
+                self._plc.write_word(addr, 1 if judgment.verdict == Verdict.OK else 0)
 
     @staticmethod
     def _apply_calibration(

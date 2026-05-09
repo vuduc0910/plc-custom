@@ -12,9 +12,13 @@ from n1700_bridge.core.models import (
     JudgmentGroupConfig,
     Measurement,
     PortReading,
+    PortVerdict,
     Verdict,
 )
-from n1700_bridge.services.excel_judgment_service import ExcelJudgmentService
+from n1700_bridge.services.excel_judgment_service import (
+    ExcelJudgmentService,
+    JudgmentResult,
+)
 from n1700_bridge.services.measurement_service import MeasurementService
 from n1700_bridge.services.register_manager import RegisterManager
 
@@ -35,22 +39,20 @@ class FakeExcelJudgmentService(ExcelJudgmentService):
     def close(self) -> None:
         pass
 
-    def judge(self, readings: list[PortReading]) -> list[JudgmentGroup]:
-        readings_map = {r.port: r.value for r in readings}
+    def judge(self, readings: list[PortReading]) -> JudgmentResult:
         results: list[JudgmentGroup] = []
         for group_cfg in self._groups:
-            computed = sum(
-                readings_map.get(i, 0.0) for i in range(1, 10)
-            ) / 9.0
-            is_ok = group_cfg.lower <= computed <= group_cfg.upper
-            verdict = Verdict.OK if is_ok else Verdict.NG
             results.append(JudgmentGroup(
                 group_name=group_cfg.name,
                 output_cell=group_cfg.output_cell,
-                computed_value=computed,
-                verdict=verdict,
+                computed_value=1.0,
+                verdict=Verdict.OK,
             ))
-        return results
+        port_verdicts = [
+            PortVerdict(port=r.port, verdict=Verdict.OK)
+            for r in readings
+        ]
+        return JudgmentResult(groups=results, port_verdicts=port_verdicts)
 
 
 @pytest.fixture()
@@ -87,9 +89,9 @@ def register_mgr() -> RegisterManager:
 
 
 DEFAULT_GROUPS = [
-    JudgmentGroupConfig(name="G1", output_cell="K2", lower=-0.05, upper=0.05),
-    JudgmentGroupConfig(name="G2", output_cell="L2", lower=-0.05, upper=0.05),
-    JudgmentGroupConfig(name="G3", output_cell="M2", lower=-0.05, upper=0.05),
+    JudgmentGroupConfig(name="G1", output_cell="K2"),
+    JudgmentGroupConfig(name="G2", output_cell="L2"),
+    JudgmentGroupConfig(name="G3", output_cell="M2"),
 ]
 
 
