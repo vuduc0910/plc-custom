@@ -92,7 +92,7 @@ class MainWindowHandlers:
             for reading in readings:
                 idx = reading.port - 1
                 if 0 <= idx < len(self._w.zero_inputs):
-                    self._w.zero_inputs[idx].setText(str(reading.value))
+                    self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
             self._w.statusBar().showMessage(STRINGS["get_zero_toast"], 3000)
         except Exception as exc:
             msg = STRINGS["get_zero_error"].format(str(exc))
