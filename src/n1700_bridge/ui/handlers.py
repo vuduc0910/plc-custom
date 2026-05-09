@@ -22,8 +22,13 @@ class MainWindowHandlers:
         self._toast_label: QLabel | None = None
 
     def _show_toast(self, message: str, success: bool = True) -> None:
-        if self._toast_label is not None:
-            self._toast_label.deleteLater()
+        try:
+            if self._toast_label is not None:
+                self._toast_label.hide()
+                self._toast_label.deleteLater()
+        except RuntimeError:
+            pass
+        self._toast_label = None
 
         color = "#4CAF50" if success else "#F44336"
         lbl = QLabel(message, self._w)
@@ -39,7 +44,15 @@ class MainWindowHandlers:
         lbl.raise_()
         lbl.show()
         self._toast_label = lbl
-        QTimer.singleShot(3000, lbl.deleteLater)
+        QTimer.singleShot(3000, self._dismiss_toast)
+
+    def _dismiss_toast(self) -> None:
+        try:
+            if self._toast_label is not None:
+                self._toast_label.deleteLater()
+        except RuntimeError:
+            pass
+        self._toast_label = None
 
     @Slot()
     def on_barcode_entered(self) -> None:
