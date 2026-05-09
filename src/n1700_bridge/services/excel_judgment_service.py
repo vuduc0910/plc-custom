@@ -96,6 +96,15 @@ class ExcelJudgmentService:
             self.open()
         assert self._sheet is not None
 
+        try:
+            return self._execute_judgment(readings)
+        except Exception:
+            logger.warning("COM error during judgment, reopening template")
+            self.close()
+            self.open()
+            return self._execute_judgment(readings)
+
+    def _execute_judgment(self, readings: list[PortReading]) -> JudgmentResult:
         self._write_inputs(readings)
         groups = self._read_group_verdicts()
         port_verdicts = self._read_port_verdicts()

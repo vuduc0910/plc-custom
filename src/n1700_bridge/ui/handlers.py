@@ -95,6 +95,7 @@ class MainWindowHandlers:
                 idx = reading.port - 1
                 if 0 <= idx < len(self._w.zero_inputs):
                     self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
+            self.on_save_registers()
             self._w.statusBar().showMessage(STRINGS["get_zero_toast"], 3000)
         except Exception as exc:
             self._w.statusBar().showMessage(
@@ -105,10 +106,15 @@ class MainWindowHandlers:
 
     @Slot()
     def on_save_registers(self) -> None:
+        from dataclasses import asdict
+
         from n1700_bridge.config.models import RegisterConfig
 
         if not hasattr(self._w, "_register_mgr"):
             return
+
+        existing = self._w._register_mgr.get()
+        base = asdict(existing) if existing else {}
 
         zeros = _collect_float_map(self._w.zero_inputs)
         input_cells = self._w.judgment_panel.get_template_input_cells()
@@ -117,14 +123,15 @@ class MainWindowHandlers:
         try:
             multiplier = float(self._w.judgment_panel.multiplier_input.text())
         except ValueError:
-            multiplier = 1.0
+            multiplier = base.get("multiplier", 1.0)
 
-        config = RegisterConfig(
-            multiplier=multiplier,
-            zeros=zeros,
-            template_path=template_path or None,
-            template_input_cells=input_cells,
-        )
+        base.update({
+            "multiplier": multiplier,
+            "zeros": zeros,
+            "template_path": template_path or None,
+            "template_input_cells": input_cells,
+        })
+        config = RegisterConfig(**base)
         self._w._register_mgr.save(config)
         self._sync_judgment_from_ui()
         self._w.statusBar().showMessage(STRINGS["saved_toast"], 3000)
