@@ -100,56 +100,91 @@ def check_n1700_dll(config: dict) -> bool:
 
     ok(f"DLL file exists ({dll_path.stat().st_size / 1024 / 1024:.1f} MB)")
 
-    # Try loading DLL (Windows only)
-    if sys.platform.startswith("win"):
-        try:
-            import ctypes
-            dll = ctypes.WinDLL(str(dll_path))
-            # Check required functions exist
-            for func_name in ["N1700InitializeLibrary", "N1700FreeLibrary", "N1700PollData"]:
-                if not hasattr(dll, func_name):
-                    fail(f"DLL missing function: {func_name}")
-                    return False
-            ok("DLL loaded, all required functions found")
-
-            # Try initialize (will fail if no hardware, but tests DLL itself)
-            num_modules = ctypes.c_uint32(0)
-            num_channels = ctypes.c_uint32(0)
-            try:
-                dll.N1700InitializeLibrary.argtypes = [
-                    ctypes.c_bool,
-                    ctypes.POINTER(ctypes.c_uint32),
-                    ctypes.POINTER(ctypes.c_uint32),
-                    ctypes.c_int32,
-                ]
-                dll.N1700InitializeLibrary.restype = ctypes.c_int
-                rc = dll.N1700InitializeLibrary(
-                    False, ctypes.byref(num_modules), ctypes.byref(num_channels), 0
-                )
-                if rc == 0:
-                    ok(f"N1700 hardware detected: {num_modules.value} modules, {num_channels.value} channels")
-                    dll.N1700FreeLibrary()
-                else:
-                    codes = {
-                        -1: "FAILURE", -2: "TIMEOUT", -3: "INVALID_DEVNO",
-                        -4: "NO_MODULES", -5: "FILENOTEXISTS",
-                    }
-                    msg = codes.get(rc, f"UNKNOWN({rc})")
-                    fail(f"N1700InitializeLibrary returned: {msg} (rc={rc})")
-                    if rc == -4:
-                        print("       → Thiết bị N1700 chưa cắm USB hoặc chưa cài FTDI driver")
-                    elif rc == -1:
-                        print("       → Tắt MillimarN1700.exe nếu đang mở (tranh USB)")
-                    return False
-            except Exception as e:
-                fail(f"N1700InitializeLibrary call error: {e}")
-                return False
-        except OSError as e:
-            fail(f"Cannot load DLL: {e}")
-            print("       → Có thể thiếu FTDI driver hoặc DLL sai architecture (32/64-bit)")
-            return False
-    else:
+    if not sys.platform.startswith("win"):
         warn("Not Windows — cannot test DLL loading")
+        return True
+
+    import ctypes
+    import threading
+
+    info("[3a] Loading DLL into memory...")
+    try:
+        dll = ctypes.WinDLL(str(dll_path))
+    except OSError as e:
+        fail(f"Cannot load DLL: {e}")
+        print("       → Có thể thiếu FTDI driver hoặc DLL sai architecture (32/64-bit)")
+        return False
+    ok("[3a] DLL loaded")
+
+    info("[3b] Checking required functions...")
+    for func_name in ["N1700InitializeLibrary", "N1700FreeLibrary", "N1700PollData"]:
+        if not hasattr(dll, func_name):
+            fail(f"DLL missing function: {func_name}")
+            return False
+    ok("[3b] All required functions found")
+
+    info("[3c] Setting up function signatures...")
+    dll.N1700InitializeLibrary.argtypes = [
+        ctypes.c_bool,
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.c_int32,
+    ]
+    dll.N1700InitializeLibrary.restype = ctypes.c_int
+    ok("[3c] Signatures configured")
+
+    info("[3d] Calling N1700InitializeLibrary (timeout 10s)...")
+    info("     Nếu treo ở đây → N1700 chưa cắm USB / FTDI lỗi / MillimarN1700.exe đang mở")
+
+    num_modules = ctypes.c_uint32(0)
+    num_channels = ctypes.c_uint32(0)
+    init_rc: int | None = None
+    init_error: Exception | None = None
+
+    def _call_init() -> None:
+        nonlocal init_rc, init_error
+        try:
+            init_rc = dll.N1700InitializeLibrary(
+                False, ctypes.byref(num_modules), ctypes.byref(num_channels), 0
+            )
+        except Exception as e:
+            init_error = e
+
+    thread = threading.Thread(target=_call_init, daemon=True)
+    thread.start()
+    thread.join(timeout=10)
+
+    if thread.is_alive():
+        fail("[3d] N1700InitializeLibrary TIMEOUT (>10s) — call is hanging")
+        print("       → Tắt MillimarN1700.exe nếu đang mở (tranh USB)")
+        print("       → Kiểm tra N1700 có cắm USB không, thử rút/cắm lại")
+        print("       → Kiểm tra FTDI driver trong Device Manager")
+        return False
+
+    if init_error is not None:
+        fail(f"[3d] N1700InitializeLibrary exception: {init_error}")
+        return False
+
+    if init_rc == 0:
+        ok(f"[3d] N1700 hardware detected: {num_modules.value} modules, {num_channels.value} channels")
+        info("[3e] Calling N1700FreeLibrary to release...")
+        try:
+            dll.N1700FreeLibrary()
+            ok("[3e] Released")
+        except Exception as e:
+            warn(f"[3e] N1700FreeLibrary raised: {e}")
+    else:
+        codes = {
+            -1: "FAILURE", -2: "TIMEOUT", -3: "INVALID_DEVNO",
+            -4: "NO_MODULES", -5: "FILENOTEXISTS",
+        }
+        msg = codes.get(init_rc, f"UNKNOWN({init_rc})")
+        fail(f"[3d] N1700InitializeLibrary returned: {msg} (rc={init_rc})")
+        if init_rc == -4:
+            print("       → Thiết bị N1700 chưa cắm USB hoặc chưa cài FTDI driver")
+        elif init_rc == -1:
+            print("       → Tắt MillimarN1700.exe nếu đang mở (tranh USB)")
+        return False
 
     return True
 
