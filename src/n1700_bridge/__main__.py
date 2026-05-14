@@ -51,8 +51,9 @@ def main() -> None:
     from n1700_bridge.config.settings import AppSettings
 
     settings = AppSettings()
-    qt_app, window = build_app(settings)
+    qt_app, window, warnings = build_app(settings)
     window.show()
+    window.show_connection_warnings(warnings)
     sys.exit(qt_app.exec())
 
 

@@ -20,15 +20,17 @@ from n1700_bridge.ui.main_window import MainWindow
 from n1700_bridge.utils.logging_config import setup_logging
 
 
-def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
+def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow, list[str]]:
     qt_app = QApplication(sys.argv)
 
     setup_logging(settings.log_dir)
     logger.info("Starting N1700 Bridge")
 
+    warnings: list[str] = []
+
     excel_path = Path(settings.excel_input.path)
     plc = _create_plc(settings)
-    n1700, excel, dll_client = _create_n1700_and_excel(settings, excel_path)
+    n1700, excel, dll_client = _create_n1700_and_excel(settings, excel_path, warnings)
 
     register_mgr = RegisterManager.load_or_create("config/registers.json")
     _apply_address_config(register_mgr, settings)
@@ -84,7 +86,14 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
 
     listener.rescan_received.connect(window._on_barcode_reset)
 
-    plc.connect()
+    try:
+        plc.connect()
+        logger.info("PLC connected successfully")
+    except Exception as e:
+        msg = f"PLC: Không kết nối được ({settings.plc.host}:{settings.plc.port}) — {e}"
+        logger.warning(msg)
+        warnings.append(msg)
+
     plc_thread.start()
 
     window._refs = {  # type: ignore[attr-defined]
@@ -98,7 +107,7 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow]:
     }
 
     logger.info("Application built successfully")
-    return qt_app, window
+    return qt_app, window, warnings
 
 
 def _create_plc(settings: AppSettings) -> Any:
@@ -113,7 +122,7 @@ def _create_plc(settings: AppSettings) -> Any:
 
 
 def _create_n1700_and_excel(
-    settings: AppSettings, excel_path: Path,
+    settings: AppSettings, excel_path: Path, warnings: list[str],
 ) -> tuple[Any, Any, Any]:
     dll_client: Any = None
 
@@ -125,16 +134,22 @@ def _create_n1700_and_excel(
         )
 
         dll_client = N1700DllClient(dll_path=settings.n1700.dll_path)
-        dll_client.connect()
+        try:
+            dll_client.connect()
+            logger.info(
+                "Using N1700 DLL direct mode ({} channels via {})",
+                settings.n1700.channel_count, settings.n1700.dll_path,
+            )
+        except Exception as e:
+            msg = f"N1700 DLL: Không kết nối được ({settings.n1700.dll_path}) — {e}"
+            logger.warning(msg)
+            warnings.append(msg)
+
         n1700: Any = DllN1700Controller(dll_client)
         excel: Any = DllN1700Source(
             dll_client,
             channel_count=settings.n1700.channel_count,
             channel_start_index=settings.n1700.channel_start_index,
-        )
-        logger.info(
-            "Using N1700 DLL direct mode ({} channels via {})",
-            settings.n1700.channel_count, settings.n1700.dll_path,
         )
         return n1700, excel, dll_client
 
@@ -178,6 +193,8 @@ def _apply_address_config(mgr: RegisterManager, settings: AppSettings) -> None:
 
     existing = mgr.get()
     zeros = existing.zeros if existing else {}
+    masters = existing.masters if existing else {}
+    master_ranges = existing.master_ranges if existing else [[1, 4], [5, 8], [9, 9]]
     multiplier = existing.multiplier if existing else settings.multiplier
     template_path = existing.template_path if existing else None
     template_input_cells = existing.template_input_cells if existing else []
@@ -189,6 +206,8 @@ def _apply_address_config(mgr: RegisterManager, settings: AppSettings) -> None:
         judgment_addresses={int(k): v for k, v in settings.judgment_addresses.items()},
         multiplier=multiplier,
         zeros=zeros,
+        masters=masters,
+        master_ranges=master_ranges,
         template_path=template_path,
         template_input_cells=template_input_cells,
         judgment_groups=judgment_groups,

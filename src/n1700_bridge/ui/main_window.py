@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QHeaderView,
@@ -40,15 +42,50 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(STRINGS["window_title"])
         self.setMinimumSize(900, 500)
         self._handlers = MainWindowHandlers(self)
+        self._warning_banner_layout: QVBoxLayout | None = None
 
         self._setup_ui()
         self._setup_status_bar()
         self._load_stylesheet()
 
+    def show_connection_warnings(self, warnings: list[str]) -> None:
+        if not warnings or self._warning_banner_layout is None:
+            return
+        for msg in warnings:
+            banner = QFrame()
+            banner.setStyleSheet(
+                "QFrame { background-color: #B71C1C; border-radius: 4px; "
+                "padding: 4px; margin: 2px 0; }"
+            )
+            row = QHBoxLayout(banner)
+            row.setContentsMargins(12, 6, 8, 6)
+
+            lbl = QLabel(msg)
+            lbl.setStyleSheet("color: white; font-weight: bold; font-size: 12px;")
+            lbl.setWordWrap(True)
+            row.addWidget(lbl, stretch=1)
+
+            close_btn = QPushButton("x")
+            close_btn.setFixedSize(20, 20)
+            close_btn.setStyleSheet(
+                "QPushButton { color: white; background: transparent; "
+                "border: none; font-weight: bold; }"
+                "QPushButton:hover { color: #FFCDD2; }"
+            )
+            close_btn.clicked.connect(lambda _checked: QApplication.quit())
+            row.addWidget(close_btn)
+
+            self._warning_banner_layout.addWidget(banner)
+
     def _setup_ui(self) -> None:
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
+
+        self._warning_banner_layout = QVBoxLayout()
+        self._warning_banner_layout.setContentsMargins(0, 0, 0, 0)
+        self._warning_banner_layout.setSpacing(2)
+        main_layout.addLayout(self._warning_banner_layout)
 
         self._setup_top_bar(main_layout)
         self._setup_measurement_table(main_layout)
