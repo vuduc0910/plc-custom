@@ -112,11 +112,12 @@ class MainWindow(QMainWindow):
 
         grid.addWidget(QLabel(STRINGS["master_label"]), 1, 0)
         self.master_inputs: list[QLineEdit] = []
-        for g in range(3):
+        _master_spans = [(1, 4), (5, 4), (9, 1)]
+        for g, (start_col, col_span) in enumerate(_master_spans):
             inp = QLineEdit("0")
             inp.setPlaceholderText(f"M{g + 1}")
             self.master_inputs.append(inp)
-            grid.addWidget(inp, 1, 1 + g * 3, 1, 3)
+            grid.addWidget(inp, 1, start_col, 1, col_span)
 
         master_btn_layout = QHBoxLayout()
         self.save_master_btn = QPushButton(STRINGS["save_btn"])
