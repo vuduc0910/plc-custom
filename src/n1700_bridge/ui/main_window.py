@@ -110,7 +110,21 @@ class MainWindow(QMainWindow):
             self.zero_inputs.append(inp)
             grid.addWidget(inp, 0, 1 + i)
 
-        grid.addWidget(QLabel(STRINGS["judgment_label"]), 1, 0)
+        grid.addWidget(QLabel(STRINGS["master_label"]), 1, 0)
+        self.master_inputs: list[QLineEdit] = []
+        for g in range(3):
+            inp = QLineEdit("0")
+            inp.setPlaceholderText(f"M{g + 1}")
+            self.master_inputs.append(inp)
+            grid.addWidget(inp, 1, 1 + g * 3, 1, 3)
+
+        master_btn_layout = QHBoxLayout()
+        self.save_master_btn = QPushButton(STRINGS["save_btn"])
+        self.save_master_btn.setObjectName("save-btn")
+        master_btn_layout.addWidget(self.save_master_btn)
+        grid.addLayout(master_btn_layout, 1, _NUM_PORTS + 1)
+
+        grid.addWidget(QLabel(STRINGS["judgment_label"]), 2, 0)
         self.port_verdict_labels: list[QLabel] = []
         for i in range(_NUM_PORTS):
             lbl = QLabel("--")
@@ -118,7 +132,7 @@ class MainWindow(QMainWindow):
             lbl.setObjectName("verdict-pending")
             lbl.setMaximumWidth(80)
             self.port_verdict_labels.append(lbl)
-            grid.addWidget(lbl, 1, 1 + i)
+            grid.addWidget(lbl, 2, 1 + i)
 
         btn_layout = QHBoxLayout()
         self.get_zero_btn = QPushButton(STRINGS["get_zero_btn"])
@@ -185,9 +199,12 @@ class MainWindow(QMainWindow):
         self.export_btn.clicked.connect(h.on_export_clicked)
         measurement_svc.measurement_complete.connect(h.on_measurement_complete)
         measurement_svc.measurement_failed.connect(h.on_measurement_failed)
+        measurement_svc.zero_captured.connect(h.on_zero_captured)
+        measurement_svc.zero_failed.connect(h.on_zero_failed)
         self.manual_trigger_btn.clicked.connect(h.on_manual_trigger)
         self.get_zero_btn.clicked.connect(h.on_get_zero)
         self.save_port_btn.clicked.connect(h.on_save_registers)
+        self.save_master_btn.clicked.connect(h.on_save_registers)
         self.judgment_panel.save_judgment_btn.clicked.connect(h.on_save_registers)
 
         existing = register_mgr.get()
@@ -207,6 +224,11 @@ class MainWindow(QMainWindow):
             idx = port - 1
             if 0 <= idx < len(self.zero_inputs):
                 self.zero_inputs[idx].setText(str(value))
+
+        for group, value in config.masters.items():
+            idx = group - 1
+            if 0 <= idx < len(self.master_inputs):
+                self.master_inputs[idx].setText(str(value))
 
         self.judgment_panel.multiplier_input.setText(str(config.multiplier))
 

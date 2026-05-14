@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from PySide6.QtCore import QTimer, Slot
+from PySide6.QtCore import QObject, QMetaObject, Qt, QTimer, Slot
 from PySide6.QtWidgets import QLabel
 
 from n1700_bridge.ui.resources.strings_vi import STRINGS
@@ -15,11 +15,13 @@ if TYPE_CHECKING:
 _NUM_GROUPS = 3
 
 
-class MainWindowHandlers:
+class MainWindowHandlers(QObject):
 
     def __init__(self, window: MainWindow) -> None:
+        super().__init__(window)
         self._w = window
         self._toast_label: QLabel | None = None
+        self._zero_capture_pending = False
 
     def _show_toast(self, message: str, success: bool = True) -> None:
         try:
@@ -120,23 +122,53 @@ class MainWindowHandlers:
 
     @Slot()
     def on_get_zero(self) -> None:
+        """Dispatch zero capture to the measurement worker thread.
+
+        Using QueuedConnection guarantees the read cannot block the UI thread
+        even if the data source holds a long-running lock during ``run_cycle``.
+        Result arrives via ``on_zero_captured`` / ``on_zero_failed``.
+        """
         if not hasattr(self._w, "_measurement_svc"):
             return
+        if self._zero_capture_pending:
+            return
+        self._zero_capture_pending = True
         self._w.get_zero_btn.setEnabled(False)
         try:
-            readings = self._w._measurement_svc.read_raw_values()
+            QMetaObject.invokeMethod(
+                self._w._measurement_svc,
+                "capture_zero",
+                Qt.ConnectionType.QueuedConnection,
+            )
+        except Exception as exc:
+            self._zero_capture_pending = False
+            self._w.get_zero_btn.setEnabled(True)
+            self._show_toast(
+                STRINGS["get_zero_error"].format(str(exc)), success=False,
+            )
+
+    @Slot(object)
+    def on_zero_captured(self, readings: object) -> None:
+        try:
+            if not isinstance(readings, list):
+                return
             for reading in readings:
                 idx = reading.port - 1
                 if 0 <= idx < len(self._w.zero_inputs):
                     self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
             self.on_save_registers()
             self._show_toast(STRINGS["get_zero_toast"])
-        except Exception as exc:
-            self._show_toast(
-                STRINGS["get_zero_error"].format(str(exc)), success=False,
-            )
         finally:
+            self._zero_capture_pending = False
             self._w.get_zero_btn.setEnabled(True)
+
+    @Slot(str)
+    def on_zero_failed(self, error_msg: str) -> None:
+        self._show_toast(
+            STRINGS["get_zero_error"].format(error_msg), success=False,
+        )
+        self._zero_capture_pending = False
+        self._w.get_zero_btn.setEnabled(True)
 
     @Slot()
     def on_save_registers(self) -> None:
@@ -151,6 +183,7 @@ class MainWindowHandlers:
         base = asdict(existing) if existing else {}
 
         zeros = _collect_float_map(self._w.zero_inputs)
+        masters = _collect_float_map(self._w.master_inputs)
         input_cells = self._w.judgment_panel.get_template_input_cells()
         template_path = self._w.judgment_panel.template_path_input.text().strip()
 
@@ -162,6 +195,7 @@ class MainWindowHandlers:
         base.update({
             "multiplier": multiplier,
             "zeros": zeros,
+            "masters": masters,
             "template_path": template_path or None,
             "template_input_cells": input_cells,
         })
@@ -293,5 +327,3 @@ def _collect_float_map(inputs: list) -> dict[int, float]:
             except ValueError:
                 pass
     return result
-
-

@@ -28,6 +28,10 @@ class MeasurementService(QObject):
     measurement_complete = Signal(object)
     measurement_failed = Signal(str)
 
+    # Async zero capture (runs on worker thread to avoid blocking UI)
+    zero_captured = Signal(object)  # list[PortReading]
+    zero_failed = Signal(str)
+
     def __init__(
         self,
         plc: PLCClient,
@@ -95,7 +99,24 @@ class MeasurementService(QObject):
         return list(self._history)
 
     def read_raw_values(self) -> list[PortReading]:
+        """Synchronous read; runs on caller thread. Prefer ``capture_zero`` from UI."""
         return self._excel.read_latest_row()
+
+    @Slot()
+    def capture_zero(self) -> None:
+        """Async-safe slot: read raw port values on the worker thread.
+
+        Connected via QueuedConnection from the UI so the call cannot block
+        the UI event loop, even if the data source holds a long-running lock
+        (e.g. while ``run_cycle`` is in its settling-delay sleep).
+        """
+        try:
+            readings = self._excel.read_latest_row()
+            logger.info("capture_zero read {} ports", len(readings))
+            self.zero_captured.emit(readings)
+        except Exception as e:
+            logger.exception("capture_zero failed")
+            self.zero_failed.emit(str(e))
 
     @Slot()
     def run_cycle(self) -> None:
@@ -138,7 +159,9 @@ class MeasurementService(QObject):
         reg_config = self._registers.get()
         multiplier = reg_config.multiplier if reg_config else 1.0
         zeros = reg_config.zeros if reg_config else {}
-        return self._apply_calibration(raw_readings, zeros, multiplier)
+        masters = reg_config.masters if reg_config else {}
+        master_ranges = reg_config.master_ranges if reg_config else [[1, 4], [5, 8], [9, 9]]
+        return self._apply_calibration(raw_readings, zeros, multiplier, masters, master_ranges)
 
     def _evaluate_judgments(
         self, log: logger, readings: list[PortReading],
@@ -227,11 +250,23 @@ class MeasurementService(QObject):
         readings: list[PortReading],
         zeros: dict[int, float],
         multiplier: float,
+        masters: dict[int, float] | None = None,
+        master_ranges: list[list[int]] | None = None,
     ) -> list[PortReading]:
+        port_master: dict[int, float] = {}
+        if masters and master_ranges:
+            for idx, rng in enumerate(master_ranges, start=1):
+                if len(rng) == 2:
+                    master_val = masters.get(idx, 0.0)
+                    for p in range(rng[0], rng[1] + 1):
+                        port_master[p] = master_val
         return [
             PortReading(
                 port=r.port,
-                value=(r.value - zeros.get(r.port, 0.0)) * multiplier,
+                value=(
+                    (r.value - zeros.get(r.port, 0.0)) * multiplier
+                    + port_master.get(r.port, 0.0)
+                ),
             )
             for r in readings
         ]

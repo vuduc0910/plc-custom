@@ -30,3 +30,4 @@ config/registers.json
 docs/*
 CLAUDE.md
 PROJECT_OVERVIEW.md
+AGENTS.md

@@ -52,6 +52,10 @@ class RegisterManager:
                     zeros={
                         int(k): float(v) for k, v in data.get("zeros", {}).items()
                     },
+                    masters={
+                        int(k): float(v) for k, v in data.get("masters", {}).items()
+                    },
+                    master_ranges=data.get("master_ranges", [[1, 4], [5, 8], [9, 9]]),
                     judgment_groups=data.get("judgment_groups", []),
                     template_path=data.get("template_path"),
                     template_input_cells=data.get("template_input_cells", []),
@@ -85,6 +89,10 @@ class RegisterManager:
                 "zeros": {
                     str(k): v for k, v in config.zeros.items()
                 },
+                "masters": {
+                    str(k): v for k, v in config.masters.items()
+                },
+                "master_ranges": config.master_ranges,
                 "judgment_groups": config.judgment_groups,
                 "template_path": config.template_path,
                 "template_input_cells": config.template_input_cells,

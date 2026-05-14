@@ -43,6 +43,7 @@ STRINGS: dict[str, str] = {
     "group_name_label": "Nh\u00f3m",
     "template_not_found": "Kh\u00f4ng t\u00ecm th\u1ea5y file template",
     "zero_label": "Zero",
+    "master_label": "Master",
     "part_id_column": "M\u00e3 h\u00e0ng",
     "computed_default": "L\u1ea5y KQ t\u1eeb excel",
     "verdict_address_label": "\u0110/c ph\u00e1n \u0111\u1ecbnh",
