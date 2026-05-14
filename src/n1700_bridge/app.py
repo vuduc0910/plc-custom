@@ -90,7 +90,7 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow, list[str
         plc.connect()
         logger.info("PLC connected successfully")
     except Exception as e:
-        msg = f"PLC: Không kết nối được ({settings.plc.host}:{settings.plc.port}) — {e}"
+        msg = f"PLC: Connection failed ({settings.plc.host}:{settings.plc.port}) — {e}"
         logger.warning(msg)
         warnings.append(msg)
 
@@ -141,7 +141,7 @@ def _create_n1700_and_excel(
                 settings.n1700.channel_count, settings.n1700.dll_path,
             )
         except Exception as e:
-            msg = f"N1700 DLL: Không kết nối được ({settings.n1700.dll_path}) — {e}"
+            msg = f"N1700 DLL: Connection failed ({settings.n1700.dll_path}) — {e}"
             logger.warning(msg)
             warnings.append(msg)
 

@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -26,15 +25,14 @@ class JudgmentPanel(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.verdict_labels: list[QLabel] = []
         self._setup_ui()
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-
         self._setup_template_section(layout)
         self._setup_multiplier_row(layout)
-        self._setup_judgment_grid(layout)
 
     def _setup_template_section(self, parent_layout: QVBoxLayout) -> None:
         row = QHBoxLayout()
@@ -75,25 +73,6 @@ class JudgmentPanel(QWidget):
 
         row.addStretch()
         parent_layout.addLayout(row)
-
-    def _setup_judgment_grid(self, parent_layout: QVBoxLayout) -> None:
-        grid = QGridLayout()
-        self.verdict_labels: list[QLabel] = []
-
-        for g in range(_NUM_GROUPS):
-            name_lbl = QLabel(f"N{g + 1}")
-            name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            grid.addWidget(name_lbl, 0, g)
-
-            verdict_lbl = QLabel("--")
-            verdict_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            verdict_lbl.setObjectName("verdict-pending")
-            verdict_lbl.setMinimumWidth(80)
-            verdict_lbl.setMinimumHeight(32)
-            self.verdict_labels.append(verdict_lbl)
-            grid.addWidget(verdict_lbl, 1, g)
-
-        parent_layout.addLayout(grid)
 
     def _on_browse_template(self) -> None:
         path, _ = QFileDialog.getOpenFileName(

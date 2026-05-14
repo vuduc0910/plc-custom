@@ -72,14 +72,6 @@ class MainWindowHandlers(QObject):
             self._w._measurement_svc.part_id = ""
 
     @Slot()
-    def on_manual_trigger(self) -> None:
-        if not hasattr(self._w, "_measurement_svc"):
-            return
-        logger.info("Manual trigger fired from UI")
-        self._w.statusBar().showMessage(STRINGS["manual_trigger_toast"], 2000)
-        self._w._measurement_svc.run_cycle()
-
-    @Slot()
     def on_export_clicked(self) -> None:
         if not hasattr(self._w, "_measurement_svc"):
             return
