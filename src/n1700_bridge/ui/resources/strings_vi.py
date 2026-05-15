@@ -38,6 +38,7 @@ STRINGS: dict[str, str] = {
     "template_input_label": "Input cells",
     "group_name_label": "Group",
     "template_not_found": "Template file not found",
+    "raw_label": "Raw",
     "zero_label": "Zero",
     "master_label": "Master",
     "part_id_column": "Part ID",

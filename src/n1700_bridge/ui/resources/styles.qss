@@ -77,3 +77,27 @@ QTableWidget::item {
 QStatusBar {
     background-color: #e0e0e0;
 }
+
+QFrame#warning-banner {
+    background-color: #B71C1C;
+    border-radius: 4px;
+    padding: 4px;
+    margin: 2px 0;
+}
+
+QLabel#warning-text {
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+QPushButton#warning-close {
+    color: white;
+    background: transparent;
+    border: none;
+    font-weight: bold;
+}
+
+QPushButton#warning-close:hover {
+    color: #FFCDD2;
+}

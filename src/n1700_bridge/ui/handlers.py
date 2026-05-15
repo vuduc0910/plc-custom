@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-from pathlib import Path
+import contextlib
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from PySide6.QtCore import QObject, QMetaObject, Qt, QTimer, Slot
+from PySide6.QtCore import QMetaObject, QObject, Qt, QTimer, Slot
 from PySide6.QtWidgets import QLabel
 
 from n1700_bridge.ui.resources.strings_vi import STRINGS
+from n1700_bridge.ui.status_polling import (
+    poll_excel,
+    poll_n1700,
+    poll_plc,
+    translate_error,
+)
 
 if TYPE_CHECKING:
     from n1700_bridge.ui.main_window import MainWindow
@@ -111,6 +117,15 @@ class MainWindowHandlers(QObject):
     def on_measurement_failed(self, error_msg: str) -> None:
         display_msg = translate_error(error_msg)
         self._w.statusBar().showMessage(f"\u26a0 {display_msg}", 5000)
+
+    @Slot(object)
+    def on_raw_values_read(self, readings: object) -> None:
+        if not isinstance(readings, list):
+            return
+        for reading in readings:
+            idx = reading.port - 1
+            if 0 <= idx < len(self._w.raw_displays):
+                self._w.raw_displays[idx].setText(f"{reading.value:.4f}")
 
     @Slot()
     def on_get_zero(self) -> None:
@@ -245,68 +260,9 @@ class MainWindowHandlers(QObject):
 
     @Slot()
     def poll_status(self) -> None:
-        _poll_plc(self._w)
-        _poll_n1700(self._w)
-        _poll_excel(self._w)
-
-
-def translate_error(error_msg: str) -> str:
-    msg_lower = error_msg.lower()
-    if "dll not connected" in msg_lower:
-        return STRINGS["error_dll_disconnected"]
-    if "timeout" in msg_lower and "n1700" in msg_lower:
-        return STRINGS["error_dll_timeout"]
-    if "polldata" in msg_lower or "poll channel" in msg_lower:
-        return STRINGS["error_dll_poll"]
-    if "window" in msg_lower:
-        return STRINGS["error_n1700_not_found"]
-    if "n1700" in msg_lower:
-        return STRINGS["error_dll_general"]
-    if "excel" in msg_lower:
-        return STRINGS["error_excel_closed"]
-    return error_msg
-
-
-def _poll_plc(w: MainWindow) -> None:
-    if not hasattr(w, "_plc"):
-        return
-    try:
-        connected = w._plc.is_connected()
-    except Exception:
-        connected = False
-    if connected:
-        w.plc_status.setText(f"● {STRINGS['status_plc_connected']}")
-        w.plc_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
-    else:
-        w.plc_status.setText(f"● {STRINGS['status_plc_disconnected']}")
-        w.plc_status.setStyleSheet("color: #F44336; font-weight: bold;")
-
-
-def _poll_n1700(w: MainWindow) -> None:
-    if not hasattr(w, "_n1700") or w._n1700 is None:
-        return
-    try:
-        available = w._n1700.is_window_available()
-    except Exception:
-        available = False
-    if available:
-        w.n1700_status.setText(f"● {STRINGS['status_n1700_available']}")
-        w.n1700_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
-    else:
-        w.n1700_status.setText(f"● {STRINGS['status_n1700_unavailable']}")
-        w.n1700_status.setStyleSheet("color: #F44336; font-weight: bold;")
-
-
-def _poll_excel(w: MainWindow) -> None:
-    if not hasattr(w, "_excel_path") or w._excel_path is None:
-        return
-    if w._excel_path.exists():
-        w.excel_status.setText(f"● {STRINGS['status_excel_open']}")
-        w.excel_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
-    else:
-        w.excel_status.setText(f"● {STRINGS['status_excel_closed']}")
-        w.excel_status.setStyleSheet("color: #F44336; font-weight: bold;")
-
+        poll_plc(self._w)
+        poll_n1700(self._w)
+        poll_excel(self._w)
 
 
 def _collect_float_map(inputs: list) -> dict[int, float]:
@@ -314,8 +270,6 @@ def _collect_float_map(inputs: list) -> dict[int, float]:
     for i, inp in enumerate(inputs, start=1):
         text = inp.text().strip()
         if text:
-            try:
+            with contextlib.suppress(ValueError):
                 result[i] = float(text)
-            except ValueError:
-                pass
     return result

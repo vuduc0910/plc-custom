@@ -28,8 +28,9 @@ class MeasurementService(QObject):
     measurement_complete = Signal(object)
     measurement_failed = Signal(str)
 
-    # Async zero capture (runs on worker thread to avoid blocking UI)
-    zero_captured = Signal(object)  # list[PortReading]
+    raw_values_read = Signal(object)
+
+    zero_captured = Signal(object)
     zero_failed = Signal(str)
 
     def __init__(
@@ -156,6 +157,7 @@ class MeasurementService(QObject):
     def _read_port_values(self, log: logger) -> list[PortReading]:  # type: ignore[type-arg]
         log.debug("Reading latest Excel row")
         raw_readings = self._excel.read_latest_row()
+        self.raw_values_read.emit(raw_readings)
         reg_config = self._registers.get()
         multiplier = reg_config.multiplier if reg_config else 1.0
         zeros = reg_config.zeros if reg_config else {}
