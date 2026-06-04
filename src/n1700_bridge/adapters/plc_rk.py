@@ -163,11 +163,12 @@ class RkSLMPPLCClient:
 
         device, number = self._parse_address(address)
         head = f"{device.lower()}{number}"
+        signed_val = value - 65536 if value > 32767 else value
 
         with self._lock:
             sock = self._ensure_connected()
             try:
-                rk_mcprotocol.write_sign_word(sock, head, [value], True)
+                rk_mcprotocol.write_sign_word(sock, head, [signed_val], True)
             except Exception as e:
                 self._handle_comm_error(e, f"write_word({address}, {value})")
 

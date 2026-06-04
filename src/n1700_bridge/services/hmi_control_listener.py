@@ -185,7 +185,7 @@ class HMIControlListener(QObject):
             addr = self._settings.zero_display_addresses.get(str(port))
             if addr:
                 int_val = int(value * 10000)
-                clamped = max(-32768, min(32767, int_val))
+                clamped = max(-32768, min(65535, int_val))
                 if clamped != int_val:
                     logger.warning(
                         "16-bit overflow at {}: {} clamped to {}", addr, int_val, clamped,

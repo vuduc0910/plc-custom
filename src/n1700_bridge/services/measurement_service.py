@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 
 _WORD_MIN = -32768
-_WORD_MAX = 32767
+_WORD_MAX = 65535
 
 from loguru import logger
 from PySide6.QtCore import QObject, Signal, Slot
@@ -323,7 +323,11 @@ class MeasurementService(QObject):
 
 
 def _to_word(raw: float, addr: str) -> int:
-    """Clamp a raw float to signed 16-bit integer range for PLC WORD write."""
+    """Clamp a raw float to 16-bit range for PLC WORD write.
+
+    Accepts -32768..65535 (covers both signed and unsigned WORD).
+    Values > 32767 are converted to signed representation for write_sign_word.
+    """
     val = int(raw)
     if val < _WORD_MIN or val > _WORD_MAX:
         clamped = max(_WORD_MIN, min(_WORD_MAX, val))
