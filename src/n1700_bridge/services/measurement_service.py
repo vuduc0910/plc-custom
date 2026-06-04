@@ -1,6 +1,9 @@
 import time
 from datetime import datetime
 
+_WORD_MIN = -32768
+_WORD_MAX = 32767
+
 from loguru import logger
 from PySide6.QtCore import QObject, Signal, Slot
 
@@ -129,7 +132,7 @@ class MeasurementService(QObject):
         for port, value in zeros.items():
             addr = self._hmi_control.zero_display_addresses.get(str(port))
             if addr:
-                self._plc.write_word(addr, int(value * 10000))
+                self._plc.write_word(addr, _to_word(value * 10000, addr))
         logger.info("Wrote {} zero values to PLC for HMI display", len(zeros))
 
     @Slot()
@@ -157,31 +160,35 @@ class MeasurementService(QObject):
             self.measurement_failed.emit(f"Unexpected error: {e}")
 
     def _reset_control_bits(self, log: logger) -> None:  # type: ignore[type-arg]
-        log.debug("Resetting control bits")
         self._plc.write_bit(self._barcode_ready_bit, False)
         self._plc.write_bit(self._done_bit, False)
 
     def _trigger_n1700_read(self, log: logger) -> None:  # type: ignore[type-arg]
-        log.debug("Clicking N1700 Data button")
         self._n1700.click_data_button()
-        log.debug("Waiting {}ms settling delay", self._settling_delay_ms)
         time.sleep(self._settling_delay_ms / 1000.0)
 
     def _read_port_values(self, log: logger) -> list[PortReading]:  # type: ignore[type-arg]
-        log.debug("Reading latest Excel row")
         raw_readings = self._excel.read_latest_row()
+        log.info(
+            "N1700 raw: {}",
+            {r.port: round(r.value, 4) for r in raw_readings},
+        )
         self.raw_values_read.emit(raw_readings)
         reg_config = self._registers.get()
         multiplier = reg_config.multiplier if reg_config else 1.0
         zeros = reg_config.zeros if reg_config else {}
         masters = reg_config.masters if reg_config else {}
         master_ranges = reg_config.master_ranges if reg_config else [[1, 4], [5, 8], [9, 9]]
-        return self._apply_calibration(raw_readings, zeros, multiplier, masters, master_ranges)
+        calibrated = self._apply_calibration(raw_readings, zeros, multiplier, masters, master_ranges)
+        log.info(
+            "Calibrated: {}",
+            {r.port: round(r.value, 4) for r in calibrated},
+        )
+        return calibrated
 
     def _evaluate_judgments(
         self, log: logger, readings: list[PortReading],
     ):
-        log.debug("Computing judgments via Excel template")
         return self._judgment.judge(readings)
 
     @staticmethod
@@ -206,14 +213,17 @@ class MeasurementService(QObject):
     ) -> None:
         reg_config = self._registers.get()
         if reg_config is not None:
-            log.debug("Writing to PLC registers")
             self._write_to_plc(measurement, reg_config)
+            log.info(
+                "PLC write: ports={}, verdicts={}, judgments={}",
+                {r.port: _to_word(r.value * 10000, "") for r in measurement.readings},
+                {pv.port: pv.verdict.value for pv in measurement.port_verdicts},
+                [j.verdict.value for j in measurement.judgments],
+            )
         else:
             log.warning("No register config set, skipping PLC write")
 
-        log.debug("Setting done_bit {} = ON", self._done_bit)
         self._plc.write_bit(self._done_bit, True)
-        log.debug("Resetting trigger_bit {} = OFF", self._trigger_bit)
         self._plc.write_bit(self._trigger_bit, False)
 
     def _persist_measurement(
@@ -247,7 +257,7 @@ class MeasurementService(QObject):
         for reading in measurement.readings:
             addr = reg_config.port_addresses.get(reading.port)
             if addr:
-                int_val = int(reading.value * 10000)
+                int_val = _to_word(reading.value * 10000, addr)
                 self._plc.write_word(addr, int_val)
 
         for pv in measurement.port_verdicts:
@@ -270,32 +280,20 @@ class MeasurementService(QObject):
         group_5_8 = [r.value for r in readings if 5 <= r.port <= 8]
 
         if group_1_4:
-            self._plc.write_word(
-                self._hmi_control.stats_1_4_min,
-                int(min(group_1_4) * 10000),
-            )
-            self._plc.write_word(
-                self._hmi_control.stats_1_4_max,
-                int(max(group_1_4) * 10000),
-            )
-            self._plc.write_word(
-                self._hmi_control.stats_1_4_avg,
-                int((sum(group_1_4) / len(group_1_4)) * 10000),
-            )
+            addr = self._hmi_control.stats_1_4_min
+            self._plc.write_word(addr, _to_word(min(group_1_4) * 10000, addr))
+            addr = self._hmi_control.stats_1_4_max
+            self._plc.write_word(addr, _to_word(max(group_1_4) * 10000, addr))
+            addr = self._hmi_control.stats_1_4_avg
+            self._plc.write_word(addr, _to_word((sum(group_1_4) / len(group_1_4)) * 10000, addr))
 
         if group_5_8:
-            self._plc.write_word(
-                self._hmi_control.stats_5_8_min,
-                int(min(group_5_8) * 10000),
-            )
-            self._plc.write_word(
-                self._hmi_control.stats_5_8_max,
-                int(max(group_5_8) * 10000),
-            )
-            self._plc.write_word(
-                self._hmi_control.stats_5_8_avg,
-                int((sum(group_5_8) / len(group_5_8)) * 10000),
-            )
+            addr = self._hmi_control.stats_5_8_min
+            self._plc.write_word(addr, _to_word(min(group_5_8) * 10000, addr))
+            addr = self._hmi_control.stats_5_8_max
+            self._plc.write_word(addr, _to_word(max(group_5_8) * 10000, addr))
+            addr = self._hmi_control.stats_5_8_avg
+            self._plc.write_word(addr, _to_word((sum(group_5_8) / len(group_5_8)) * 10000, addr))
 
     @staticmethod
     def _apply_calibration(
@@ -322,3 +320,15 @@ class MeasurementService(QObject):
             )
             for r in readings
         ]
+
+
+def _to_word(raw: float, addr: str) -> int:
+    """Clamp a raw float to signed 16-bit integer range for PLC WORD write."""
+    val = int(raw)
+    if val < _WORD_MIN or val > _WORD_MAX:
+        clamped = max(_WORD_MIN, min(_WORD_MAX, val))
+        logger.warning(
+            "16-bit overflow at {}: {} clamped to {}", addr, val, clamped,
+        )
+        return clamped
+    return val

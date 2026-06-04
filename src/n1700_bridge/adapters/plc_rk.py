@@ -115,7 +115,6 @@ class RkSLMPPLCClient:
                 else:
                     values = rk_mcprotocol.read_bit(sock, head, 1)
                     result = bool(values[0])
-                logger.debug("RkSLMP read_bit {} = {}", address, result)
                 return result
             except Exception as e:
                 self._handle_comm_error(e, f"read_bit({address})")
@@ -136,7 +135,6 @@ class RkSLMPPLCClient:
                     rk_mcprotocol.write_sign_word(sock, head, [1 if value else 0], True)
                 else:
                     rk_mcprotocol.write_bit(sock, head, [1 if value else 0])
-                logger.debug("RkSLMP write_bit {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_bit({address}, {value})")
 
@@ -154,7 +152,6 @@ class RkSLMPPLCClient:
             try:
                 values = rk_mcprotocol.read_sign_word(sock, head, 1, True)
                 result = values[0]
-                logger.debug("RkSLMP read_word {} = {}", address, result)
                 return int(result)
             except Exception as e:
                 self._handle_comm_error(e, f"read_word({address})")
@@ -171,7 +168,6 @@ class RkSLMPPLCClient:
             sock = self._ensure_connected()
             try:
                 rk_mcprotocol.write_sign_word(sock, head, [value], True)
-                logger.debug("RkSLMP write_word {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_word({address}, {value})")
 
@@ -186,7 +182,6 @@ class RkSLMPPLCClient:
             sock = self._ensure_connected()
             try:
                 rk_mcprotocol.write_sign_word(sock, head, values, True)
-                logger.debug("RkSLMP write_words {} count={}", start_address, len(values))
             except Exception as e:
                 self._handle_comm_error(e, f"write_words({start_address}, count={len(values)})")
 
@@ -204,7 +199,6 @@ class RkSLMPPLCClient:
             sock = self._ensure_connected()
             try:
                 rk_mcprotocol.write_sign_word(sock, head, [word_lo, word_hi], True)
-                logger.debug("RkSLMP write_float {} = {}", address, value)
             except Exception as e:
                 self._handle_comm_error(e, f"write_float({address}, {value})")
 
