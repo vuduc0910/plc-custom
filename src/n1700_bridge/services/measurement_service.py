@@ -132,7 +132,7 @@ class MeasurementService(QObject):
         for port, value in zeros.items():
             addr = self._hmi_control.zero_display_addresses.get(str(port))
             if addr:
-                self._plc.write_word(addr, _to_word(value * 10000, addr))
+                self._plc.write_word(addr, _to_word(value * 100, addr))
         logger.info("Wrote {} zero values to PLC for HMI display", len(zeros))
 
     @Slot()
@@ -216,7 +216,7 @@ class MeasurementService(QObject):
             self._write_to_plc(measurement, reg_config)
             log.info(
                 "PLC write: ports={}, verdicts={}, judgments={}",
-                {r.port: _to_word(r.value * 10000, "") for r in measurement.readings},
+                {r.port: _to_word(r.value * 100, "") for r in measurement.readings},
                 {pv.port: pv.verdict.value for pv in measurement.port_verdicts},
                 [j.verdict.value for j in measurement.judgments],
             )
@@ -257,7 +257,7 @@ class MeasurementService(QObject):
         for reading in measurement.readings:
             addr = reg_config.port_addresses.get(reading.port)
             if addr:
-                int_val = _to_word(reading.value * 10000, addr)
+                int_val = _to_word(reading.value * 100, addr)
                 self._plc.write_word(addr, int_val)
 
         for pv in measurement.port_verdicts:
@@ -281,19 +281,19 @@ class MeasurementService(QObject):
 
         if group_1_4:
             addr = self._hmi_control.stats_1_4_min
-            self._plc.write_word(addr, _to_word(min(group_1_4) * 10000, addr))
+            self._plc.write_word(addr, _to_word(min(group_1_4) * 100, addr))
             addr = self._hmi_control.stats_1_4_max
-            self._plc.write_word(addr, _to_word(max(group_1_4) * 10000, addr))
+            self._plc.write_word(addr, _to_word(max(group_1_4) * 100, addr))
             addr = self._hmi_control.stats_1_4_avg
-            self._plc.write_word(addr, _to_word((sum(group_1_4) / len(group_1_4)) * 10000, addr))
+            self._plc.write_word(addr, _to_word((sum(group_1_4) / len(group_1_4)) * 100, addr))
 
         if group_5_8:
             addr = self._hmi_control.stats_5_8_min
-            self._plc.write_word(addr, _to_word(min(group_5_8) * 10000, addr))
+            self._plc.write_word(addr, _to_word(min(group_5_8) * 100, addr))
             addr = self._hmi_control.stats_5_8_max
-            self._plc.write_word(addr, _to_word(max(group_5_8) * 10000, addr))
+            self._plc.write_word(addr, _to_word(max(group_5_8) * 100, addr))
             addr = self._hmi_control.stats_5_8_avg
-            self._plc.write_word(addr, _to_word((sum(group_5_8) / len(group_5_8)) * 10000, addr))
+            self._plc.write_word(addr, _to_word((sum(group_5_8) / len(group_5_8)) * 100, addr))
 
     @staticmethod
     def _apply_calibration(

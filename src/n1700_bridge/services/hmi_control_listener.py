@@ -184,7 +184,7 @@ class HMIControlListener(QObject):
         for port, value in zeros.items():
             addr = self._settings.zero_display_addresses.get(str(port))
             if addr:
-                int_val = int(value * 10000)
+                int_val = int(value * 100)
                 clamped = max(-32768, min(65535, int_val))
                 if clamped != int_val:
                     logger.warning(
