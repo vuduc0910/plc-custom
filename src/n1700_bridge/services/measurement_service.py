@@ -5,6 +5,7 @@ from loguru import logger
 from PySide6.QtCore import QObject, Signal, Slot
 
 from n1700_bridge.config.models import RegisterConfig
+from n1700_bridge.config.settings import HMIControlSettings
 from n1700_bridge.core.excel_source import ExcelDataSource, ExcelSourceError
 from n1700_bridge.core.models import (
     JudgmentGroupConfig,
@@ -45,6 +46,7 @@ class MeasurementService(QObject):
         done_bit: str = "M101",
         trigger_bit: str = "M100",
         store: MeasurementStore | None = None,
+        hmi_control: HMIControlSettings | None = None,
     ) -> None:
         super().__init__()
         self._plc = plc
@@ -57,6 +59,7 @@ class MeasurementService(QObject):
         self._done_bit = done_bit
         self._trigger_bit = trigger_bit
         self._store = store
+        self._hmi_control = hmi_control
         self._part_id = ""
         self._history: list[Measurement] = []
 
@@ -246,6 +249,43 @@ class MeasurementService(QObject):
             addr = reg_config.judgment_addresses.get(i)
             if addr:
                 self._plc.write_word(addr, 1 if judgment.verdict == Verdict.OK else 0)
+
+        if self._hmi_control is not None:
+            self._write_stats_to_plc(measurement.readings)
+
+    def _write_stats_to_plc(self, readings: list[PortReading]) -> None:
+        """Write MIN/MAX/AVG stats for port groups to PLC for HMI display."""
+        assert self._hmi_control is not None
+        group_1_4 = [r.value for r in readings if 1 <= r.port <= 4]
+        group_5_8 = [r.value for r in readings if 5 <= r.port <= 8]
+
+        if group_1_4:
+            self._plc.write_word(
+                self._hmi_control.stats_1_4_min,
+                int(min(group_1_4) * 10000),
+            )
+            self._plc.write_word(
+                self._hmi_control.stats_1_4_max,
+                int(max(group_1_4) * 10000),
+            )
+            self._plc.write_word(
+                self._hmi_control.stats_1_4_avg,
+                int((sum(group_1_4) / len(group_1_4)) * 10000),
+            )
+
+        if group_5_8:
+            self._plc.write_word(
+                self._hmi_control.stats_5_8_min,
+                int(min(group_5_8) * 10000),
+            )
+            self._plc.write_word(
+                self._hmi_control.stats_5_8_max,
+                int(max(group_5_8) * 10000),
+            )
+            self._plc.write_word(
+                self._hmi_control.stats_5_8_avg,
+                int((sum(group_5_8) / len(group_5_8)) * 10000),
+            )
 
     @staticmethod
     def _apply_calibration(

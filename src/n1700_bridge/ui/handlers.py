@@ -125,7 +125,7 @@ class MainWindowHandlers(QObject):
         for reading in readings:
             idx = reading.port - 1
             if 0 <= idx < len(self._w.raw_displays):
-                self._w.raw_displays[idx].setText(f"{reading.value:.4f}")
+                self._w.raw_displays[idx].setText(f"{reading.value:.2f}")
 
     @Slot()
     def on_get_zero(self) -> None:
@@ -162,7 +162,7 @@ class MainWindowHandlers(QObject):
             for reading in readings:
                 idx = reading.port - 1
                 if 0 <= idx < len(self._w.zero_inputs):
-                    self._w.zero_inputs[idx].setText(f"{reading.value:.4f}")
+                    self._w.zero_inputs[idx].setText(f"{reading.value:.2f}")
             self.on_save_registers()
             self._show_toast(STRINGS["get_zero_toast"])
         finally:

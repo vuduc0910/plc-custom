@@ -235,7 +235,7 @@ class MainWindow(QMainWindow):
         self.measurement_table.setItem(row, 1, QTableWidgetItem(part_id))
         for i, val in enumerate(values):
             self.measurement_table.setItem(
-                row, 2 + i, QTableWidgetItem(f"{val:.4f}"),
+                row, 2 + i, QTableWidgetItem(f"{val:.2f}"),
             )
         self.measurement_table.scrollToBottom()
 

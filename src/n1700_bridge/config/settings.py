@@ -55,6 +55,23 @@ class JudgmentGroupSettings(BaseModel):
     output_cell: str
 
 
+class HMIControlSettings(BaseModel):
+
+    get_zero_trigger: str = "D1220"
+    get_zero_save: str = "M1220"
+    master_word_1_4: str = "D1230"
+    master_word_5_8: str = "D1232"
+    master_word_9: str = "D1234"
+    master_save: str = "M1230"
+    stats_1_4_min: str = "D1240"
+    stats_1_4_max: str = "D1242"
+    stats_1_4_avg: str = "D1244"
+    stats_5_8_min: str = "D1250"
+    stats_5_8_max: str = "D1252"
+    stats_5_8_avg: str = "D1254"
+    poll_interval_ms: int = 200
+
+
 class AppSettings(BaseSettings):
 
     model_config = {"extra": "ignore"}
@@ -95,6 +112,7 @@ class AppSettings(BaseSettings):
     judgment_addresses: dict[str, str] = {
         "1": "D1300", "2": "D1301", "3": "D1302",
     }
+    hmi_control: HMIControlSettings = HMIControlSettings()
     settling_delay_ms: int = 500
     report_output_dir: Path = Path("./reports")
     log_dir: Path = Path("./logs")

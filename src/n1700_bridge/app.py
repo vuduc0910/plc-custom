@@ -12,6 +12,7 @@ from n1700_bridge.adapters.plc_fake import FakePLCClient
 from n1700_bridge.config.settings import AppSettings
 from n1700_bridge.core.models import ExcelTemplateConfig, JudgmentGroupConfig
 from n1700_bridge.services.excel_judgment_service import ExcelJudgmentService
+from n1700_bridge.services.hmi_control_listener import HMIControlListener
 from n1700_bridge.services.measurement_service import MeasurementService
 from n1700_bridge.services.measurement_store import MeasurementStore
 from n1700_bridge.services.plc_listener import PLCListener
@@ -64,6 +65,7 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow, list[str
         done_bit=settings.plc.done_bit,
         trigger_bit=settings.plc.trigger_bit,
         store=store,
+        hmi_control=settings.hmi_control,
     )
 
     measurement_svc.restore_history(store.load_recent(limit=1000))
@@ -73,6 +75,10 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow, list[str
     measurement_svc.moveToThread(measurement_thread)
     listener.trigger_received.connect(measurement_svc.run_cycle)
     measurement_thread.start()
+
+    hmi_thread, hmi_listener = _create_hmi_thread(
+        settings, plc, measurement_svc, register_mgr,
+    )
 
     window = MainWindow()
     window.wire_services(
@@ -95,11 +101,14 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow, list[str
         warnings.append(msg)
 
     plc_thread.start()
+    hmi_thread.start()
 
     window._refs = {  # type: ignore[attr-defined]
         "plc_thread": plc_thread,
         "measurement_thread": measurement_thread,
+        "hmi_thread": hmi_thread,
         "listener": listener,
+        "hmi_listener": hmi_listener,
         "measurement_svc": measurement_svc,
         "plc": plc,
         "dll_client": dll_client,
@@ -186,6 +195,25 @@ def _create_plc_thread(settings: AppSettings, plc: Any) -> tuple[QThread, PLCLis
     listener.moveToThread(plc_thread)
     plc_thread.started.connect(listener.start_polling)
     return plc_thread, listener
+
+
+def _create_hmi_thread(
+    settings: AppSettings,
+    plc: Any,
+    measurement_svc: MeasurementService,
+    register_mgr: RegisterManager,
+) -> tuple[QThread, HMIControlListener]:
+    hmi_thread = QThread()
+    hmi_listener = HMIControlListener(
+        plc=plc,
+        measurement_svc=measurement_svc,
+        register_mgr=register_mgr,
+        settings=settings.hmi_control,
+    )
+    hmi_listener.moveToThread(hmi_thread)
+    hmi_thread.started.connect(hmi_listener.start_polling)
+    measurement_svc.zero_captured.connect(hmi_listener.on_zero_captured)
+    return hmi_thread, hmi_listener
 
 
 def _apply_address_config(mgr: RegisterManager, settings: AppSettings) -> None:

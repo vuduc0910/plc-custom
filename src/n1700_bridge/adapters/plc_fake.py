@@ -40,16 +40,24 @@ class FakePLCClient:
     def read_bit(self, address: str) -> bool:
         """Read a bit device."""
         self._validate_address(address)
+        device = address[0]
         with self._lock:
-            val = self._bits.get(address, False)
+            if device in ("D", "R"):
+                val = self._words.get(address, 0) != 0
+            else:
+                val = self._bits.get(address, False)
         logger.debug("FakePLC read_bit {} = {}", address, val)
         return val
 
     def write_bit(self, address: str, value: bool) -> None:
         """Write a bit device."""
         self._validate_address(address)
+        device = address[0]
         with self._lock:
-            self._bits[address] = value
+            if device in ("D", "R"):
+                self._words[address] = 1 if value else 0
+            else:
+                self._bits[address] = value
         logger.debug("FakePLC write_bit {} = {}", address, value)
 
     def read_word(self, address: str) -> int:
