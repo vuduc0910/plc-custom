@@ -110,7 +110,7 @@ class HMIControlListener(QObject):
         try:
             QMetaObject.invokeMethod(
                 self._measurement_svc,
-                b"capture_zero",
+                "capture_zero",
                 Qt.ConnectionType.QueuedConnection,
             )
             logger.debug("HMIControlListener: triggered capture_zero")
