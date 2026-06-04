@@ -165,6 +165,9 @@ class MainWindowHandlers(QObject):
                     self._w.zero_inputs[idx].setText(f"{reading.value:.2f}")
             self.on_save_registers()
             self._show_toast(STRINGS["get_zero_toast"])
+            if hasattr(self._w, "_measurement_svc"):
+                zeros = {r.port: r.value for r in readings}
+                self._w._measurement_svc.write_zeros_to_hmi(zeros)
         finally:
             self._zero_capture_pending = False
             self._w.get_zero_btn.setEnabled(True)

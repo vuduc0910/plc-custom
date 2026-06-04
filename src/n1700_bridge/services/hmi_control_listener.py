@@ -141,6 +141,7 @@ class HMIControlListener(QObject):
 
         new_config = replace(existing, zeros=dict(self._pending_zeros))
         self._register_mgr.save(new_config)
+        self._write_zeros_to_plc(self._pending_zeros)
         self._pending_zeros = None
         self.zero_saved.emit()
         logger.info("HMIControlListener: zeros saved to RegisterConfig")
@@ -177,6 +178,16 @@ class HMIControlListener(QObject):
 
         except Exception as e:
             logger.error("HMIControlListener: failed to save masters: {}", e)
+
+    def _write_zeros_to_plc(self, zeros: dict[int, float]) -> None:
+        """Write zero values to PLC registers (D1400-D1408) for HMI display."""
+        for port, value in zeros.items():
+            addr = self._settings.zero_display_addresses.get(str(port))
+            if addr:
+                self._plc.write_word(addr, int(value * 10000))
+        logger.info(
+            "HMIControlListener: wrote {} zero values to PLC for HMI", len(zeros),
+        )
 
     def stop(self) -> None:
         """Stop the polling loop."""

@@ -122,6 +122,16 @@ class MeasurementService(QObject):
             logger.exception("capture_zero failed")
             self.zero_failed.emit(str(e))
 
+    def write_zeros_to_hmi(self, zeros: dict[int, float]) -> None:
+        """Write zero values to PLC registers (D1400-D1408) for HMI display."""
+        if self._hmi_control is None:
+            return
+        for port, value in zeros.items():
+            addr = self._hmi_control.zero_display_addresses.get(str(port))
+            if addr:
+                self._plc.write_word(addr, int(value * 10000))
+        logger.info("Wrote {} zero values to PLC for HMI display", len(zeros))
+
     @Slot()
     def run_cycle(self) -> None:
         self.measurement_started.emit()
