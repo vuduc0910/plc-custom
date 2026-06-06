@@ -152,9 +152,9 @@ class HMIControlListener(QObject):
     def _save_masters(self) -> None:
         """Read master values from PLC and save to RegisterConfig."""
         try:
-            m1_raw = self._plc.read_word(self._settings.master_word_1_4)
-            m2_raw = self._plc.read_word(self._settings.master_word_5_8)
-            m3_raw = self._plc.read_word(self._settings.master_word_9)
+            m1_raw = self._plc.read_dword(self._settings.master_word_1_4)
+            m2_raw = self._plc.read_dword(self._settings.master_word_5_8)
+            m3_raw = self._plc.read_dword(self._settings.master_word_9)
 
             m1 = m1_raw / 100.0
             m2 = m2_raw / 100.0

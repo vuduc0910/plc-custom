@@ -5,7 +5,7 @@ import threading
 
 from loguru import logger
 
-from n1700_bridge.core.plc import PLCAddressError
+from n1700_bridge.core.plc import PLCAddressError, signed_dword
 
 
 class FakePLCClient:
@@ -67,6 +67,18 @@ class FakePLCClient:
             val = self._words.get(address, 0)
         logger.debug("FakePLC read_word {} = {}", address, val)
         return val
+
+    def read_dword(self, address: str) -> int:
+        """Read a signed 32-bit Double Word from 2 consecutive registers."""
+        self._validate_address(address)
+        device = address[0]
+        num = int(address[1:])
+        with self._lock:
+            low = self._words.get(address, 0)
+            high = self._words.get(f"{device}{num + 1}", 0)
+        result = signed_dword(low, high)
+        logger.debug("FakePLC read_dword {} = {}", address, result)
+        return result
 
     def write_word(self, address: str, value: int) -> None:
         """Write a word device."""

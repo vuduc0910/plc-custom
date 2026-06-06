@@ -15,6 +15,16 @@ class PLCAddressError(PLCError):
     """Raised when an invalid PLC address is used."""
 
 
+def signed_dword(low: int, high: int) -> int:
+    """Combine low/high 16-bit words into a signed 32-bit integer.
+
+    ``low`` and ``high`` may be signed or unsigned 16-bit values; only their
+    low 16 bits are used. Mitsubishi Double Word: low word at the lower address.
+    """
+    u = ((high & 0xFFFF) << 16) | (low & 0xFFFF)
+    return u - (1 << 32) if u >= (1 << 31) else u
+
+
 @runtime_checkable
 class PLCClient(Protocol):
     """Protocol for PLC communication.
@@ -47,6 +57,10 @@ class PLCClient(Protocol):
     # Word devices (D, R)
     def read_word(self, address: str) -> int:
         """Read a single word device."""
+        ...
+
+    def read_dword(self, address: str) -> int:
+        """Read a signed 32-bit Double Word from 2 consecutive registers."""
         ...
 
     def write_word(self, address: str, value: int) -> None:

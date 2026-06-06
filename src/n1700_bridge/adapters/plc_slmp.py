@@ -11,7 +11,12 @@ from typing import Any
 
 from loguru import logger
 
-from n1700_bridge.core.plc import PLCAddressError, PLCConnectionError, PLCError
+from n1700_bridge.core.plc import (
+    PLCAddressError,
+    PLCConnectionError,
+    PLCError,
+    signed_dword,
+)
 
 _ADDRESS_PATTERN = re.compile(r"^([DMRXY])(\d+)$")
 _MAX_RETRIES = 3
@@ -171,6 +176,22 @@ class SLMPPLCClient:
                 return int(result)
             except Exception as e:
                 self._handle_comm_error(e, f"read_word({address})")
+                return 0  # unreachable
+
+    def read_dword(self, address: str) -> int:
+        """Read a signed 32-bit Double Word from 2 consecutive registers."""
+        device, number = self._parse_address(address)
+        head = f"{device}{number}"
+
+        with self._lock:
+            plc = self._ensure_connected()
+            try:
+                low, high = plc.batchread_wordunits(headdevice=head, readsize=2)
+                result = signed_dword(int(low), int(high))
+                logger.debug("SLMP read_dword {} = {}", address, result)
+                return result
+            except Exception as e:
+                self._handle_comm_error(e, f"read_dword({address})")
                 return 0  # unreachable
 
     def write_word(self, address: str, value: int) -> None:
