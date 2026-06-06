@@ -8,7 +8,7 @@ from PySide6.QtCore import QMetaObject, QObject, Qt, Signal, Slot
 
 from n1700_bridge.config.settings import HMIControlSettings
 from n1700_bridge.core.plc import PLCClient, PLCError
-from n1700_bridge.services.measurement_service import MeasurementService
+from n1700_bridge.services.measurement_service import MeasurementService, _to_dwords
 from n1700_bridge.services.register_manager import RegisterManager
 
 
@@ -183,17 +183,15 @@ class HMIControlListener(QObject):
             logger.error("HMIControlListener: failed to save masters: {}", e)
 
     def _write_zeros_to_plc(self, zeros: dict[int, float]) -> None:
-        """Write zero values to PLC registers (D1400-D1408) for HMI display."""
+        """Write zero values to PLC registers (D1400-D1416) for HMI display.
+
+        Written as 2-register Double Word slots, matching the port value
+        registers (D1200-D1216) so the HMI reads them consistently.
+        """
         for port, value in zeros.items():
             addr = self._settings.zero_display_addresses.get(str(port))
             if addr:
-                int_val = round(value * 100)
-                clamped = max(-32768, min(65535, int_val))
-                if clamped != int_val:
-                    logger.warning(
-                        "16-bit overflow at {}: {} clamped to {}", addr, int_val, clamped,
-                    )
-                self._plc.write_word(addr, clamped)
+                self._plc.write_words(addr, _to_dwords(value * 100, addr))
         logger.info(
             "HMIControlListener: wrote {} zero values to PLC for HMI", len(zeros),
         )

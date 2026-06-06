@@ -126,13 +126,17 @@ class MeasurementService(QObject):
             self.zero_failed.emit(str(e))
 
     def write_zeros_to_hmi(self, zeros: dict[int, float]) -> None:
-        """Write zero values to PLC registers (D1400-D1408) for HMI display."""
+        """Write zero values to PLC registers (D1400-D1416) for HMI display.
+
+        Written as 2-register Double Word slots, matching the port value
+        registers (D1200-D1216) so the HMI reads them consistently.
+        """
         if self._hmi_control is None:
             return
         for port, value in zeros.items():
             addr = self._hmi_control.zero_display_addresses.get(str(port))
             if addr:
-                self._plc.write_word(addr, _to_word(value * 100, addr))
+                self._plc.write_words(addr, _to_dwords(value * 100, addr))
         logger.info("Wrote {} zero values to PLC for HMI display", len(zeros))
 
     @Slot()

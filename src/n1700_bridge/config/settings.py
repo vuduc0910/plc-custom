@@ -70,7 +70,7 @@ class HMIControlSettings(BaseModel):
     stats_5_8_max: str = "D1252"
     stats_5_8_avg: str = "D1254"
     zero_display_addresses: dict[str, str] = {
-        str(i): f"D{1399 + i}" for i in range(1, 10)
+        str(i): f"D{1398 + 2 * i}" for i in range(1, 10)
     }
     poll_interval_ms: int = 200
 
