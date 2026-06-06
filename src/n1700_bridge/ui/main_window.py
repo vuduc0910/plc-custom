@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -279,6 +280,16 @@ class MainWindow(QMainWindow):
         self._status_timer.timeout.connect(h.poll_status)
         self._status_timer.start(2000)
         h.poll_status()
+
+    def showEvent(self, event: QShowEvent) -> None:
+        """Focus the barcode field when the window is shown.
+
+        Without this the first scan goes to whichever widget has default
+        focus, so ``barcode_input.returnPressed`` never fires and the part
+        id (and the D1020 ready signal) is never set.
+        """
+        super().showEvent(event)
+        self.barcode_input.setFocus()
 
     def _on_barcode_reset(self) -> None:
         self._handlers.on_barcode_reset()

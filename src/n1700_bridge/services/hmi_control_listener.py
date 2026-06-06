@@ -127,6 +127,9 @@ class HMIControlListener(QObject):
             "HMIControlListener: captured {} zero values, pending SAVE",
             len(self._pending_zeros),
         )
+        # Show captured values on HMI (D1400-D1408) immediately so the operator
+        # can review them before pressing SAVE (M1220).
+        self._write_zeros_to_plc(self._pending_zeros)
 
     def _save_zeros(self) -> None:
         """Save pending zeros to RegisterConfig."""
@@ -153,9 +156,9 @@ class HMIControlListener(QObject):
             m2_raw = self._plc.read_word(self._settings.master_word_5_8)
             m3_raw = self._plc.read_word(self._settings.master_word_9)
 
-            m1 = m1_raw / 10000.0
-            m2 = m2_raw / 10000.0
-            m3 = m3_raw / 10000.0
+            m1 = m1_raw / 100.0
+            m2 = m2_raw / 100.0
+            m3 = m3_raw / 100.0
 
             logger.info(
                 "HMIControlListener: read masters from PLC: "
@@ -184,7 +187,7 @@ class HMIControlListener(QObject):
         for port, value in zeros.items():
             addr = self._settings.zero_display_addresses.get(str(port))
             if addr:
-                int_val = int(value * 100)
+                int_val = round(value * 100)
                 clamped = max(-32768, min(65535, int_val))
                 if clamped != int_val:
                     logger.warning(
