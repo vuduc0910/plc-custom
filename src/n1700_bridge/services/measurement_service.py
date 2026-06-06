@@ -257,8 +257,7 @@ class MeasurementService(QObject):
         for reading in measurement.readings:
             addr = reg_config.port_addresses.get(reading.port)
             if addr:
-                int_val = _to_word(reading.value * 100, addr)
-                self._plc.write_word(addr, int_val)
+                self._plc.write_words(addr, _to_dwords(reading.value * 100, addr))
 
         for pv in measurement.port_verdicts:
             addr = reg_config.port_verdict_addresses.get(pv.port)
@@ -281,19 +280,19 @@ class MeasurementService(QObject):
 
         if group_1_4:
             addr = self._hmi_control.stats_1_4_min
-            self._plc.write_word(addr, _to_word(min(group_1_4) * 100, addr))
+            self._plc.write_words(addr, _to_dwords(min(group_1_4) * 100, addr))
             addr = self._hmi_control.stats_1_4_max
-            self._plc.write_word(addr, _to_word(max(group_1_4) * 100, addr))
+            self._plc.write_words(addr, _to_dwords(max(group_1_4) * 100, addr))
             addr = self._hmi_control.stats_1_4_avg
-            self._plc.write_word(addr, _to_word((sum(group_1_4) / len(group_1_4)) * 100, addr))
+            self._plc.write_words(addr, _to_dwords((sum(group_1_4) / len(group_1_4)) * 100, addr))
 
         if group_5_8:
             addr = self._hmi_control.stats_5_8_min
-            self._plc.write_word(addr, _to_word(min(group_5_8) * 100, addr))
+            self._plc.write_words(addr, _to_dwords(min(group_5_8) * 100, addr))
             addr = self._hmi_control.stats_5_8_max
-            self._plc.write_word(addr, _to_word(max(group_5_8) * 100, addr))
+            self._plc.write_words(addr, _to_dwords(max(group_5_8) * 100, addr))
             addr = self._hmi_control.stats_5_8_avg
-            self._plc.write_word(addr, _to_word((sum(group_5_8) / len(group_5_8)) * 100, addr))
+            self._plc.write_words(addr, _to_dwords((sum(group_5_8) / len(group_5_8)) * 100, addr))
 
     @staticmethod
     def _apply_calibration(
@@ -328,7 +327,7 @@ def _to_word(raw: float, addr: str) -> int:
     Accepts -32768..65535 (covers both signed and unsigned WORD).
     Values > 32767 are converted to signed representation for write_sign_word.
     """
-    val = int(raw)
+    val = round(raw)
     if val < _WORD_MIN or val > _WORD_MAX:
         clamped = max(_WORD_MIN, min(_WORD_MAX, val))
         logger.warning(
@@ -336,3 +335,26 @@ def _to_word(raw: float, addr: str) -> int:
         )
         return clamped
     return val
+
+
+_SWORD_MIN = -32768
+_SWORD_MAX = 32767
+
+
+def _to_dwords(raw: float, addr: str) -> list[int]:
+    """Convert a scaled float to a [low, high] signed-word pair for a 2-register slot.
+
+    The measurement value (×100) fits in a signed 16-bit word; the high word is
+    a sign extension (0 for positive, -1 for negative). Writing both registers
+    keeps the slot consistent whether the HMI reads it as a 16-bit Word or as a
+    32-bit Double Word — avoiding stale data in the neighbouring register.
+    """
+    val = round(raw)
+    if val < _SWORD_MIN or val > _SWORD_MAX:
+        clamped = max(_SWORD_MIN, min(_SWORD_MAX, val))
+        logger.warning(
+            "16-bit overflow at {}: {} clamped to {}", addr, val, clamped,
+        )
+        val = clamped
+    high = -1 if val < 0 else 0
+    return [val, high]
