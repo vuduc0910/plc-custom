@@ -90,16 +90,16 @@ class MeasurementService(QObject):
         self._part_id = value
         logger.bind(part_id=value).info("Part ID set to: {}", value)
 
-        if value:
-            try:
-                self._plc.write_bit(self._barcode_ready_bit, True)
-                logger.bind(part_id=value).info(
-                    "Barcode ready signal sent to PLC at {}", self._barcode_ready_bit
-                )
-            except PLCError as e:
-                logger.bind(part_id=value).error(
-                    "Failed to send barcode ready signal: {}", e
-                )
+        try:
+            self._plc.write_bit(self._barcode_ready_bit, bool(value))
+            logger.bind(part_id=value).info(
+                "Barcode register {} set to {}",
+                self._barcode_ready_bit, 1 if value else 0,
+            )
+        except PLCError as e:
+            logger.bind(part_id=value).error(
+                "Failed to update barcode register: {}", e
+            )
 
     @property
     def history(self) -> list[Measurement]:

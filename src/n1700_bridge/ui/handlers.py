@@ -172,6 +172,16 @@ class MainWindowHandlers(QObject):
             self._zero_capture_pending = False
             self._w.get_zero_btn.setEnabled(True)
 
+    @Slot(object)
+    def on_master_values_changed(self, values: object) -> None:
+        """Live-update master fields when they change on the HMI."""
+        if not isinstance(values, dict):
+            return
+        for group, value in values.items():
+            idx = group - 1
+            if 0 <= idx < len(self._w.master_inputs):
+                self._w.master_inputs[idx].setText(f"{value:.2f}")
+
     @Slot(str)
     def on_zero_failed(self, error_msg: str) -> None:
         self._show_toast(

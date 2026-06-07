@@ -21,6 +21,7 @@ class HMIControlListener(QObject):
 
     zero_saved = Signal()
     master_saved = Signal()
+    master_values_changed = Signal(object)
     connection_lost = Signal()
 
     def __init__(
@@ -40,6 +41,7 @@ class HMIControlListener(QObject):
         self._last_get_zero = False
         self._last_save_zero = False
         self._last_save_master = False
+        self._last_master_values: dict[int, float] | None = None
 
     @Slot()
     def start_polling(self) -> None:
@@ -56,12 +58,14 @@ class HMIControlListener(QObject):
         self._last_get_zero = False
         self._last_save_zero = False
         self._last_save_master = False
+        self._last_master_values = None
 
         while self._running:
             try:
                 self._poll_get_zero_trigger()
                 self._poll_save_zero()
                 self._poll_save_master()
+                self._poll_master_values()
 
             except PLCError:
                 logger.warning("HMIControlListener: connection lost")
@@ -103,7 +107,25 @@ class HMIControlListener(QObject):
                 self._settings.master_save,
             )
             self._save_masters()
+            # Auto-reset the save flag back to 0 after handling.
+            self._plc.write_bit(self._settings.master_save, False)
         self._last_save_master = current
+
+    def _poll_master_values(self) -> None:
+        """Poll master registers (D1230/D1232/D1234) and emit on change.
+
+        Lets the bridge UI mirror master values as the operator types them on
+        the HMI, without waiting for SAVE. Emits only when a value actually
+        changes so it does not overwrite manual edits on every poll cycle.
+        """
+        current = {
+            1: self._plc.read_dword(self._settings.master_word_1_4) / 100.0,
+            2: self._plc.read_dword(self._settings.master_word_5_8) / 100.0,
+            3: self._plc.read_dword(self._settings.master_word_9) / 100.0,
+        }
+        if current != self._last_master_values:
+            self._last_master_values = current
+            self.master_values_changed.emit(dict(current))
 
     def _trigger_get_zero(self) -> None:
         """Trigger zero capture on measurement service worker thread."""
