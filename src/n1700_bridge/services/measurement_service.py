@@ -64,6 +64,7 @@ class MeasurementService(QObject):
         self._store = store
         self._hmi_control = hmi_control
         self._part_id = ""
+        self._barcode_ready: bool | None = None
         self._history: list[Measurement] = []
 
     @property
@@ -88,13 +89,20 @@ class MeasurementService(QObject):
     @part_id.setter
     def part_id(self, value: str) -> None:
         self._part_id = value
-        logger.bind(part_id=value).info("Part ID set to: {}", value)
 
+        ready = bool(value)
+        if ready == self._barcode_ready:
+            # Field still has / still lacks a value: D1020 already correct,
+            # skip the redundant PLC write so live edits don't spam the bus.
+            return
+
+        logger.bind(part_id=value).info("Part ID set to: {}", value)
         try:
-            self._plc.write_bit(self._barcode_ready_bit, bool(value))
+            self._plc.write_bit(self._barcode_ready_bit, ready)
+            self._barcode_ready = ready
             logger.bind(part_id=value).info(
                 "Barcode register {} set to {}",
-                self._barcode_ready_bit, 1 if value else 0,
+                self._barcode_ready_bit, 1 if ready else 0,
             )
         except PLCError as e:
             logger.bind(part_id=value).error(

@@ -259,6 +259,7 @@ class MainWindow(QMainWindow):
         self.judgment_panel.verdict_labels = self.group_verdict_labels
 
         h = self._handlers
+        self.barcode_input.textChanged.connect(h.on_barcode_changed)
         self.barcode_input.returnPressed.connect(h.on_barcode_entered)
         self.barcode_reset_btn.clicked.connect(h.on_barcode_reset)
         self.export_btn.clicked.connect(h.on_export_clicked)

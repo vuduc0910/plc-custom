@@ -62,6 +62,18 @@ class MainWindowHandlers(QObject):
             pass
         self._toast_label = None
 
+    @Slot(str)
+    def on_barcode_changed(self, text: str) -> None:
+        """Mirror the barcode field into ``part_id`` (and D1020) on every edit.
+
+        Watches the input live so the PLC ready bit reflects whether the
+        field currently holds a value — D1020 becomes 1 as soon as the field
+        is non-empty and 0 when it is cleared — without waiting for Enter.
+        """
+        if not hasattr(self._w, "_measurement_svc"):
+            return
+        self._w._measurement_svc.part_id = text.strip()
+
     @Slot()
     def on_barcode_entered(self) -> None:
         text = self._w.barcode_input.text().strip()
