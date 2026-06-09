@@ -22,6 +22,7 @@ class HMIControlListener(QObject):
     zero_saved = Signal()
     master_saved = Signal()
     master_values_changed = Signal(object)
+    zero_values_changed = Signal(object)
     connection_lost = Signal()
 
     def __init__(
@@ -42,6 +43,7 @@ class HMIControlListener(QObject):
         self._last_save_zero = False
         self._last_save_master = False
         self._last_master_values: dict[int, float] | None = None
+        self._last_zero_values: dict[int, float] | None = None
 
     @Slot()
     def start_polling(self) -> None:
@@ -59,6 +61,8 @@ class HMIControlListener(QObject):
         self._last_save_zero = False
         self._last_save_master = False
         self._last_master_values = None
+        self._last_zero_values = None
+        self._seed_zero_registers()
 
         while self._running:
             try:
@@ -66,6 +70,7 @@ class HMIControlListener(QObject):
                 self._poll_save_zero()
                 self._poll_save_master()
                 self._poll_master_values()
+                self._poll_zero_values()
 
             except PLCError:
                 logger.warning("HMIControlListener: connection lost")
@@ -127,6 +132,39 @@ class HMIControlListener(QObject):
             self._last_master_values = current
             self.master_values_changed.emit(dict(current))
 
+    def _read_zero_values(self) -> dict[int, float]:
+        """Read the per-port zero registers (D1400-D1416) as scaled floats."""
+        values: dict[int, float] = {}
+        for port_str, addr in self._settings.zero_display_addresses.items():
+            values[int(port_str)] = self._plc.read_dword(addr) / 100.0
+        return values
+
+    def _poll_zero_values(self) -> None:
+        """Poll the zero registers and emit on change.
+
+        Lets the bridge UI mirror zero values as the operator types them on
+        the HMI, mirroring ``_poll_master_values``. Emits only when a value
+        actually changes so manual edits in the desktop UI are not clobbered
+        on every poll cycle.
+        """
+        current = self._read_zero_values()
+        if current != self._last_zero_values:
+            self._last_zero_values = current
+            self.zero_values_changed.emit(dict(current))
+
+    def _seed_zero_registers(self) -> None:
+        """Push persisted zeros to the HMI registers and seed the poll baseline.
+
+        Without this the first poll would mirror whatever stale values the PLC
+        retained into the UI, overwriting the zeros loaded from config. Writing
+        the saved zeros first makes the HMI and the desktop start in sync.
+        """
+        config = self._register_mgr.get()
+        zeros = dict(config.zeros) if config and config.zeros else {}
+        if zeros:
+            self._write_zeros_to_plc(zeros)
+        self._last_zero_values = self._read_zero_values()
+
     def _trigger_get_zero(self) -> None:
         """Trigger zero capture on measurement service worker thread."""
         try:
@@ -154,22 +192,29 @@ class HMIControlListener(QObject):
         self._write_zeros_to_plc(self._pending_zeros)
 
     def _save_zeros(self) -> None:
-        """Save pending zeros to RegisterConfig."""
-        if self._pending_zeros is None:
-            logger.warning("HMIControlListener: no pending zeros to save")
-            return
+        """Save the current zero values to RegisterConfig.
 
+        Reads the live zero registers from the PLC (rather than only the last
+        captured values) so zeros the operator typed directly on the HMI are
+        persisted too, mirroring ``_save_masters``.
+        """
         existing = self._register_mgr.get()
         if existing is None:
             logger.warning("HMIControlListener: no RegisterConfig to update")
             return
 
-        new_config = replace(existing, zeros=dict(self._pending_zeros))
+        try:
+            zeros = self._read_zero_values()
+        except PLCError as e:
+            logger.error("HMIControlListener: failed to read zeros to save: {}", e)
+            return
+
+        new_config = replace(existing, zeros=zeros)
         self._register_mgr.save(new_config)
-        self._write_zeros_to_plc(self._pending_zeros)
+        self._last_zero_values = zeros
         self._pending_zeros = None
         self.zero_saved.emit()
-        logger.info("HMIControlListener: zeros saved to RegisterConfig")
+        logger.info("HMIControlListener: zeros saved to RegisterConfig: {}", zeros)
 
     def _save_masters(self) -> None:
         """Read master values from PLC and save to RegisterConfig."""

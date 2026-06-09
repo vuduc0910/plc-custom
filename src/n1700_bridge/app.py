@@ -94,6 +94,9 @@ def build_app(settings: AppSettings) -> tuple[QApplication, MainWindow, list[str
     hmi_listener.master_values_changed.connect(
         window._handlers.on_master_values_changed
     )
+    hmi_listener.zero_values_changed.connect(
+        window._handlers.on_zero_values_changed
+    )
 
     try:
         plc.connect()

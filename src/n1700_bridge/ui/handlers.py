@@ -211,6 +211,16 @@ class MainWindowHandlers(QObject):
             if 0 <= idx < len(self._w.master_inputs):
                 self._w.master_inputs[idx].setText(f"{value:.2f}")
 
+    @Slot(object)
+    def on_zero_values_changed(self, values: object) -> None:
+        """Live-update zero fields when they change on the HMI."""
+        if not isinstance(values, dict):
+            return
+        for port, value in values.items():
+            idx = port - 1
+            if 0 <= idx < len(self._w.zero_inputs):
+                self._w.zero_inputs[idx].setText(f"{value:.2f}")
+
     @Slot(str)
     def on_zero_failed(self, error_msg: str) -> None:
         self._show_toast(
