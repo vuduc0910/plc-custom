@@ -16,6 +16,8 @@ _VERDICT_FONT = Font(bold=True, color="FFFFFF")
 
 _NUM_PORTS = 9
 _NUM_GROUPS = 3
+_DECIMALS = 2
+_NUMBER_FORMAT = "0.00"
 
 
 class ReportExporter:
@@ -44,6 +46,7 @@ class ReportExporter:
             ws.append(self._build_data_row(m, len(headers)))
 
         self._style_verdict_cells(ws, len(measurements))
+        self._style_numeric_cells(ws, len(measurements))
         self._auto_fit_columns(ws, headers, len(measurements))
 
         wb.save(filepath)
@@ -73,11 +76,11 @@ class ReportExporter:
 
         readings_map = {r.port: r.value for r in m.readings}
         for port in range(1, _NUM_PORTS + 1):
-            row_data.append(readings_map.get(port, 0.0))
+            row_data.append(round(readings_map.get(port, 0.0), _DECIMALS))
 
         for j in m.judgments:
             row_data.append(j.output_cell)
-            row_data.append(j.computed_value)
+            row_data.append(round(j.computed_value, _DECIMALS))
             row_data.append(j.verdict.value)
 
         while len(row_data) < header_count:
@@ -92,6 +95,20 @@ class ReportExporter:
             cell.font = _HEADER_FONT
             cell.fill = _HEADER_FILL
             cell.alignment = _HEADER_ALIGN
+
+    @staticmethod
+    def _style_numeric_cells(ws: object, row_count: int) -> None:
+        """Force two-decimal display on the port and group-value columns."""
+        value_cols = list(range(3, 3 + _NUM_PORTS))
+        group_value_start = 2 + _NUM_PORTS + 1
+        for g in range(_NUM_GROUPS):
+            value_cols.append(group_value_start + g * 3 + 1)
+
+        for row_idx in range(2, row_count + 2):
+            for col in value_cols:
+                cell = ws.cell(row=row_idx, column=col)  # type: ignore[union-attr]
+                if isinstance(cell.value, (int, float)):
+                    cell.number_format = _NUMBER_FORMAT
 
     @staticmethod
     def _style_verdict_cells(ws: object, row_count: int) -> None:
