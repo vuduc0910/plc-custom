@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -22,6 +22,10 @@ _NUM_GROUPS = 3
 
 
 class JudgmentPanel(QWidget):
+
+    #: Emitted with the chosen path when a template file is picked via Browse,
+    #: so listeners can persist it immediately without a separate Save click.
+    template_selected = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -83,6 +87,7 @@ class JudgmentPanel(QWidget):
         )
         if path:
             self.template_path_input.setText(path)
+            self.template_selected.emit(path)
 
     def get_template_input_cells(self) -> list[str]:
         raw = self.template_input_cells_input.text().strip()

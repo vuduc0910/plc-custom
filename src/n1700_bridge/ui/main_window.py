@@ -272,6 +272,7 @@ class MainWindow(QMainWindow):
         self.save_port_btn.clicked.connect(h.on_save_registers)
         self.save_master_btn.clicked.connect(h.on_save_registers)
         self.judgment_panel.save_judgment_btn.clicked.connect(h.on_save_registers)
+        self.judgment_panel.template_selected.connect(h.on_save_registers)
 
         existing = register_mgr.get()
         if existing is not None:
