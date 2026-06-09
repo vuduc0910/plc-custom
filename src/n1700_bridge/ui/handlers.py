@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import contextlib
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from loguru import logger
 from PySide6.QtCore import QMetaObject, QObject, Qt, QTimer, Slot
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QDialog, QLabel
 
 from n1700_bridge.ui.resources.strings_vi import STRINGS
 from n1700_bridge.ui.status_polling import (
@@ -99,11 +100,27 @@ class MainWindowHandlers(QObject):
             self._show_toast(STRINGS["export_empty"], success=False)
             return
 
+        from n1700_bridge.ui.export_dialog import ExportRangeDialog
+
+        timestamps = [m.timestamp for m in history]
+        dialog = ExportRangeDialog(min(timestamps), max(timestamps), self._w)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        start, end = dialog.selected_range()
+        # The picker exposes whole-second precision, so include the entire
+        # end second regardless of sub-second timestamps on the records.
+        upper = end + timedelta(seconds=1)
+        selected = [m for m in history if start <= m.timestamp < upper]
+        if not selected:
+            self._show_toast(STRINGS["export_empty"], success=False)
+            return
+
         try:
             from n1700_bridge.services.report_exporter import ReportExporter
 
             exporter = ReportExporter(self._w._report_output_dir)
-            filepath = exporter.export(history)
+            filepath = exporter.export(selected)
             msg = STRINGS["export_success"].format(filepath.name)
             self._show_toast(msg)
             logger.info("Report exported via UI: {}", filepath)
