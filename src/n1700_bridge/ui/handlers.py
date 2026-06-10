@@ -191,7 +191,7 @@ class MainWindowHandlers(QObject):
             for reading in readings:
                 idx = reading.port - 1
                 if 0 <= idx < len(self._w.zero_inputs):
-                    self._w.zero_inputs[idx].setText(f"{reading.value:.2f}")
+                    self._w.zero_inputs[idx].setText(f"{reading.value:.3f}")
             self.on_save_registers()
             self._show_toast(STRINGS["get_zero_toast"])
             if hasattr(self._w, "_measurement_svc"):
@@ -219,7 +219,7 @@ class MainWindowHandlers(QObject):
         for port, value in values.items():
             idx = port - 1
             if 0 <= idx < len(self._w.zero_inputs):
-                self._w.zero_inputs[idx].setText(f"{value:.2f}")
+                self._w.zero_inputs[idx].setText(f"{value:.3f}")
 
     @Slot(str)
     def on_zero_failed(self, error_msg: str) -> None:
