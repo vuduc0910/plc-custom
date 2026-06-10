@@ -277,6 +277,9 @@ class MainWindow(QMainWindow):
         existing = register_mgr.get()
         if existing is not None:
             self._load_register_config(existing)
+            # Push the saved template/groups into the judgment service at startup
+            # so they are active without requiring a manual Save first.
+            h._sync_judgment_from_ui()
 
         self._status_timer = QTimer(self)
         self._status_timer.timeout.connect(h.poll_status)

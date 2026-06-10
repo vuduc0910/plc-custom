@@ -251,12 +251,20 @@ class MainWindowHandlers(QObject):
         except ValueError:
             multiplier = base.get("multiplier", 1.0)
 
+        judgment_groups = base.get("judgment_groups", [])
+        if hasattr(self._w, "_measurement_svc"):
+            judgment_groups = [
+                {"name": g.name, "output_cell": g.output_cell}
+                for g in self._w._measurement_svc.judgment_service.groups
+            ]
+
         base.update({
             "multiplier": multiplier,
             "zeros": zeros,
             "masters": masters,
             "template_path": template_path or None,
             "template_input_cells": input_cells,
+            "judgment_groups": judgment_groups,
         })
         config = RegisterConfig(**base)
         self._w._register_mgr.save(config)
@@ -271,9 +279,20 @@ class MainWindowHandlers(QObject):
 
         panel = self._w.judgment_panel
         existing_groups = self._w._measurement_svc.judgment_service.groups
+        # Prefer output cells persisted in the DB config; fall back to whatever
+        # the service was seeded with from settings.json on first run.
+        saved_groups: list = []
+        if hasattr(self._w, "_register_mgr"):
+            cfg = self._w._register_mgr.get()
+            if cfg is not None:
+                saved_groups = cfg.judgment_groups
         groups: list[JudgmentGroupConfig] = []
         for i in range(_NUM_GROUPS):
-            output_cell = existing_groups[i].output_cell if i < len(existing_groups) else ""
+            output_cell = ""
+            if i < len(saved_groups) and isinstance(saved_groups[i], dict):
+                output_cell = str(saved_groups[i].get("output_cell") or "")
+            if not output_cell and i < len(existing_groups):
+                output_cell = existing_groups[i].output_cell
             groups.append(JudgmentGroupConfig(
                 name=f"G{i + 1}",
                 output_cell=output_cell,
