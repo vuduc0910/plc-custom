@@ -309,6 +309,17 @@ class MainWindowHandlers(QObject):
                 input_cells=tuple(input_cells),
             )
             self._w._measurement_svc.judgment_service.update_template(template_cfg)
+            logger.info(
+                "Judgment sync: template='{}' sheet='{}' input_cells={} groups={}",
+                template_path, sheet_name, input_cells,
+                [(g.name, g.output_cell) for g in groups],
+            )
+        else:
+            logger.warning(
+                "Judgment sync: no template path in UI/config — service keeps "
+                "previous template; groups={}",
+                [(g.name, g.output_cell) for g in groups],
+            )
 
     def _update_port_verdicts(self, measurement) -> None:
         from n1700_bridge.core.models import Measurement
