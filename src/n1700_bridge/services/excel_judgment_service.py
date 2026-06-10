@@ -114,13 +114,17 @@ class ExcelJudgmentService:
         assert self._sheet is not None
         input_cells = self._template_config.input_cells
 
+        written: dict[int, str] = {}
         for reading in readings:
             cell_index = reading.port - 1
             if 0 <= cell_index < len(input_cells):
                 cell_addr = input_cells[cell_index]
                 self._sheet.range(cell_addr).value = reading.value
+                written[reading.port] = f"{cell_addr}={reading.value}"
 
-        logger.debug("Wrote {} readings to template input cells", len(readings))
+        logger.info(
+            "Judgment inputs written ({} ports): {}", len(written), written,
+        )
 
     def _read_group_verdicts(self) -> list[JudgmentGroup]:
         assert self._sheet is not None
@@ -138,10 +142,11 @@ class ExcelJudgmentService:
                 verdict=verdict,
             ))
 
-            logger.debug(
-                "Group {} cell='{}' = {} -> {}",
+            logger.info(
+                "Judgment group '{}': cell {} raw={} computed={} -> {}",
                 group_cfg.name,
                 group_cfg.output_cell,
+                raw_value,
                 computed,
                 verdict.value,
             )
@@ -158,7 +163,10 @@ class ExcelJudgmentService:
             val = _safe_float(raw)
             verdict = Verdict.OK if val == 1.0 else Verdict.NG
             results.append(PortVerdict(port=i + 1, verdict=verdict))
-            logger.debug("Port {} cell='{}' -> {}", i + 1, cell, verdict.value)
+            logger.info(
+                "Judgment port {}: cell {} raw={} value={} -> {}",
+                i + 1, cell, raw, val, verdict.value,
+            )
 
         return results
 
