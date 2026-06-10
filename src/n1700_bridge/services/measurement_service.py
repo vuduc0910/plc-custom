@@ -144,7 +144,8 @@ class MeasurementService(QObject):
         for port, value in zeros.items():
             addr = self._hmi_control.zero_display_addresses.get(str(port))
             if addr:
-                self._plc.write_words(addr, _to_dwords(value * 100, addr))
+                # Zero uses ×1000 scaling (3 decimals), unlike other values (×100).
+                self._plc.write_words(addr, _to_dwords(value * 1000, addr))
         logger.info("Wrote {} zero values to PLC for HMI display", len(zeros))
 
     @Slot()

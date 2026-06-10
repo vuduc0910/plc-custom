@@ -136,7 +136,8 @@ class HMIControlListener(QObject):
         """Read the per-port zero registers (D1400-D1416) as scaled floats."""
         values: dict[int, float] = {}
         for port_str, addr in self._settings.zero_display_addresses.items():
-            values[int(port_str)] = self._plc.read_dword(addr) / 100.0
+            # Zero uses ×1000 scaling (3 decimals), unlike other values (×100).
+            values[int(port_str)] = self._plc.read_dword(addr) / 1000.0
         return values
 
     def _poll_zero_values(self) -> None:
@@ -258,7 +259,8 @@ class HMIControlListener(QObject):
         for port, value in zeros.items():
             addr = self._settings.zero_display_addresses.get(str(port))
             if addr:
-                self._plc.write_words(addr, _to_dwords(value * 100, addr))
+                # Zero uses ×1000 scaling (3 decimals), unlike other values (×100).
+                self._plc.write_words(addr, _to_dwords(value * 1000, addr))
         logger.info(
             "HMIControlListener: wrote {} zero values to PLC for HMI", len(zeros),
         )
