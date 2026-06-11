@@ -67,16 +67,14 @@ def create_icon(assets_dir: Path) -> Path | None:
     return ico_path
 
 
-def create_desktop_shortcut(exe_path: Path, icon_path: Path | None) -> None:
+def create_desktop_shortcut(exe_path: Path) -> None:
     """Create a Windows Desktop shortcut (.lnk) for the built executable."""
     if platform.system() != "Windows":
         print("Shortcut creation is Windows-only — skipping on this platform.")
         return
 
     try:
-        import winreg  # noqa: F401  — guard: confirms we're on Windows
-        from win32com.shell import shell  # type: ignore[import]
-        import pythoncom  # type: ignore[import]
+        import win32com.client  # type: ignore[import]
     except ImportError:
         print(
             "pywin32 not installed — skipping shortcut creation.\n"
@@ -84,28 +82,54 @@ def create_desktop_shortcut(exe_path: Path, icon_path: Path | None) -> None:
         )
         return
 
-    pythoncom.CoInitialize()
-    try:
-        desktop = Path(shell.SHGetFolderPath(0, 0x0010, None, 0))  # CSIDL_DESKTOP
-        lnk_path = desktop / "N1700 Bridge.lnk"
+    desktop = Path.home() / "Desktop"
+    lnk_path = desktop / "N1700 Bridge.lnk"
 
-        shortcut = pythoncom.CoCreateInstance(
-            shell.CLSID_ShellLink,
-            None,
-            pythoncom.CLSCTX_INPROC_SERVER,
-            shell.IID_IShellLink,
-        )
-        shortcut.SetPath(str(exe_path))
-        shortcut.SetWorkingDirectory(str(exe_path.parent))
-        shortcut.SetDescription("N1700 Bridge — PLC measurement tool")
-        if icon_path and icon_path.exists():
-            shortcut.SetIconLocation(str(exe_path), 0)
+    shell = win32com.client.Dispatch("WScript.Shell")
+    shortcut = shell.CreateShortCut(str(lnk_path))
+    shortcut.TargetPath = str(exe_path)
+    shortcut.WorkingDirectory = str(exe_path.parent)
+    shortcut.Description = "N1700 Bridge — PLC measurement tool"
+    shortcut.IconLocation = str(exe_path)  # dùng icon nhúng trong .exe
+    shortcut.save()
 
-        persist = shortcut.QueryInterface(pythoncom.IID_IPersistFile)
-        persist.Save(str(lnk_path), True)
-        print(f"Shortcut created: {lnk_path}")
-    finally:
-        pythoncom.CoUninitialize()
+    print(f"Shortcut created: {lnk_path}")
+
+
+def create_install_bat(dist_dir: Path) -> None:
+    """Write install.bat into dist/ — run this on the target machine to create a Desktop shortcut."""
+    bat = dist_dir / "install.bat"
+    bat.write_text(
+        "@echo off\n"
+        "setlocal\n"
+        "\n"
+        ":: Lấy đường dẫn thư mục chứa file .bat này\n"
+        "set APPDIR=%~dp0\n"
+        "set EXE=%APPDIR%n1700_bridge.exe\n"
+        "set SHORTCUT=%USERPROFILE%\\Desktop\\N1700 Bridge.lnk\n"
+        "\n"
+        "if not exist \"%EXE%\" (\n"
+        "    echo Khong tim thay n1700_bridge.exe trong cung thu muc nay.\n"
+        "    pause\n"
+        "    exit /b 1\n"
+        ")\n"
+        "\n"
+        ":: Dung PowerShell de tao shortcut (khong can cai gi them)\n"
+        "powershell -NoProfile -Command \"\n"
+        "  $ws = New-Object -ComObject WScript.Shell;\n"
+        "  $s  = $ws.CreateShortcut('%SHORTCUT%');\n"
+        "  $s.TargetPath      = '%EXE%';\n"
+        "  $s.WorkingDirectory= '%APPDIR%';\n"
+        "  $s.Description     = 'N1700 Bridge - PLC measurement tool';\n"
+        "  $s.IconLocation    = '%EXE%';\n"
+        "  $s.Save()\n"
+        "\"\n"
+        "\n"
+        "echo Shortcut da tao tren Desktop: N1700 Bridge\n"
+        "pause\n",
+        encoding="utf-8",
+    )
+    print(f"Installer created: {bat}")
 
 
 def build() -> None:
@@ -180,7 +204,8 @@ def build() -> None:
         exe_path = root / "dist" / exe_name
         print(f"\nBuild successful! Executable: {exe_path}")
         print(f"Size: {exe_path.stat().st_size / 1024 / 1024:.1f} MB")
-        create_desktop_shortcut(exe_path, icon_path)
+        create_desktop_shortcut(exe_path)
+        create_install_bat(root / "dist")
     else:
         print("\nBuild failed!", file=sys.stderr)
         sys.exit(1)
