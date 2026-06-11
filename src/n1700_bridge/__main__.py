@@ -20,13 +20,15 @@ def main() -> None:
     # If running from PyInstaller, extract bundled data to working dir
     if getattr(sys, "frozen", False):
         bundle_dir = Path(getattr(sys, "_MEIPASS", "."))
-        # Copy config example if config.json doesn't exist
+        # Extract config to working dir on first run (prefer config.json, fall back to example)
         config_path = base_dir / "config" / "config.json"
         if not config_path.exists():
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            bundled_config = bundle_dir / "config" / "config.json"
             bundled_example = bundle_dir / "config" / "config.example.json"
-            if bundled_example.exists():
-                config_path.parent.mkdir(parents=True, exist_ok=True)
-                config_path.write_text(bundled_example.read_text())
+            source = bundled_config if bundled_config.exists() else bundled_example
+            if source.exists():
+                config_path.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
 
         # Copy sample Excel if not present
         mocks_path = base_dir / "mocks" / "sample_n1700_output.xlsx"
