@@ -3,7 +3,7 @@
 Usage:
     python build.py
 
-On Windows, this creates: dist/n1700_bridge.exe
+On Windows, this creates: dist/n1700_bridge.exe  (with Desktop shortcut)
 On macOS, this creates: dist/n1700_bridge (for testing the build process)
 """
 
@@ -13,15 +13,113 @@ import sys
 from pathlib import Path
 
 
+def create_icon(assets_dir: Path) -> Path | None:
+    """Generate a simple ICO file using Pillow. Returns path or None on failure."""
+    ico_path = assets_dir / "icon.ico"
+    if ico_path.exists():
+        return ico_path
+
+    try:
+        from PIL import Image, ImageDraw, ImageFont  # type: ignore[import]
+    except ImportError:
+        print("Pillow not installed — skipping icon generation (pip install Pillow)")
+        return None
+
+    sizes = [256, 128, 64, 48, 32, 16]
+    images: list[Image.Image] = []
+
+    for size in sizes:
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+
+        # Circle background — deep blue
+        margin = max(1, size // 16)
+        draw.ellipse(
+            [margin, margin, size - margin - 1, size - margin - 1],
+            fill=(26, 86, 161, 255),
+        )
+
+        # Letter "N" centered — scale font to size
+        font_size = max(8, int(size * 0.55))
+        font: ImageFont.ImageFont | ImageFont.FreeTypeFont
+        try:
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except OSError:
+            font = ImageFont.load_default()
+
+        text = "N"
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+        x = (size - text_w) / 2 - bbox[0]
+        y = (size - text_h) / 2 - bbox[1]
+        draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+
+        images.append(img)
+
+    images[0].save(
+        ico_path,
+        format="ICO",
+        sizes=[(img.width, img.height) for img in images],
+        append_images=images[1:],
+    )
+    print(f"Icon created: {ico_path}")
+    return ico_path
+
+
+def create_desktop_shortcut(exe_path: Path, icon_path: Path | None) -> None:
+    """Create a Windows Desktop shortcut (.lnk) for the built executable."""
+    if platform.system() != "Windows":
+        print("Shortcut creation is Windows-only — skipping on this platform.")
+        return
+
+    try:
+        import winreg  # noqa: F401  — guard: confirms we're on Windows
+        from win32com.shell import shell  # type: ignore[import]
+        import pythoncom  # type: ignore[import]
+    except ImportError:
+        print(
+            "pywin32 not installed — skipping shortcut creation.\n"
+            "  Install with: pip install pywin32"
+        )
+        return
+
+    pythoncom.CoInitialize()
+    try:
+        desktop = Path(shell.SHGetFolderPath(0, 0x0010, None, 0))  # CSIDL_DESKTOP
+        lnk_path = desktop / "N1700 Bridge.lnk"
+
+        shortcut = pythoncom.CoCreateInstance(
+            shell.CLSID_ShellLink,
+            None,
+            pythoncom.CLSCTX_INPROC_SERVER,
+            shell.IID_IShellLink,
+        )
+        shortcut.SetPath(str(exe_path))
+        shortcut.SetWorkingDirectory(str(exe_path.parent))
+        shortcut.SetDescription("N1700 Bridge — PLC measurement tool")
+        if icon_path and icon_path.exists():
+            shortcut.SetIconLocation(str(exe_path), 0)
+
+        persist = shortcut.QueryInterface(pythoncom.IID_IPersistFile)
+        persist.Save(str(lnk_path), True)
+        print(f"Shortcut created: {lnk_path}")
+    finally:
+        pythoncom.CoUninitialize()
+
+
 def build() -> None:
     """Run PyInstaller to create a single executable."""
     root = Path(__file__).parent
+    assets_dir = root / "assets"
+    assets_dir.mkdir(exist_ok=True)
     entry = root / "src" / "n1700_bridge" / "__main__.py"
+
+    icon_path = create_icon(assets_dir)
 
     # Data files to include
     datas = [
         (str(root / "config" / "config.example.json"), "config"),
-        (str(root / "config" / "template.xlsx"), "config"),
         (str(root / "mocks" / "sample_n1700_output.xlsx"), "mocks"),
         (str(root / "src" / "n1700_bridge" / "ui" / "resources" / "styles.qss"),
          str(Path("n1700_bridge") / "ui" / "resources")),
@@ -35,7 +133,10 @@ def build() -> None:
         "--clean",
     ]
 
-    # Add data files
+    if icon_path and icon_path.exists():
+        cmd.extend(["--icon", str(icon_path)])
+
+    # Data files
     separator = ";" if platform.system() == "Windows" else ":"
     for src, dst in datas:
         cmd.extend(["--add-data", f"{src}{separator}{dst}"])
@@ -68,10 +169,7 @@ def build() -> None:
         "--hidden-import", "pywinauto",
     ])
 
-    # Add paths
     cmd.extend(["--paths", str(root / "src")])
-
-    # Entry point
     cmd.append(str(entry))
 
     print(f"Running: {' '.join(cmd)}")
@@ -82,6 +180,7 @@ def build() -> None:
         exe_path = root / "dist" / exe_name
         print(f"\nBuild successful! Executable: {exe_path}")
         print(f"Size: {exe_path.stat().st_size / 1024 / 1024:.1f} MB")
+        create_desktop_shortcut(exe_path, icon_path)
     else:
         print("\nBuild failed!", file=sys.stderr)
         sys.exit(1)
