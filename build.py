@@ -90,7 +90,7 @@ def create_desktop_shortcut(exe_path: Path) -> None:
     shortcut.TargetPath = str(exe_path)
     shortcut.WorkingDirectory = str(exe_path.parent)
     shortcut.Description = "N1700 Bridge — PLC measurement tool"
-    shortcut.IconLocation = str(exe_path)  # dùng icon nhúng trong .exe
+    shortcut.IconLocation = str(exe_path)  # use icon embedded in .exe
     shortcut.save()
 
     print(f"Shortcut created: {lnk_path}")
@@ -103,29 +103,31 @@ def create_install_bat(dist_dir: Path) -> None:
         "@echo off\n"
         "setlocal\n"
         "\n"
-        ":: Lấy đường dẫn thư mục chứa file .bat này\n"
         "set APPDIR=%~dp0\n"
         "set EXE=%APPDIR%n1700_bridge.exe\n"
-        "set SHORTCUT=%USERPROFILE%\\Desktop\\N1700 Bridge.lnk\n"
         "\n"
         "if not exist \"%EXE%\" (\n"
-        "    echo Khong tim thay n1700_bridge.exe trong cung thu muc nay.\n"
+        "    echo n1700_bridge.exe not found in the same directory.\n"
         "    pause\n"
         "    exit /b 1\n"
         ")\n"
         "\n"
-        ":: Dung PowerShell de tao shortcut (khong can cai gi them)\n"
+        ":: Use PowerShell to resolve the real Desktop path (supports OneDrive, any language)\n"
         "powershell -NoProfile -Command \"\n"
+        "  $appDir  = '%APPDIR%';\n"
+        "  $exe     = '%EXE%';\n"
+        "  $desktop = [Environment]::GetFolderPath('Desktop');\n"
+        "  $lnk     = Join-Path $desktop 'N1700 Bridge.lnk';\n"
         "  $ws = New-Object -ComObject WScript.Shell;\n"
-        "  $s  = $ws.CreateShortcut('%SHORTCUT%');\n"
-        "  $s.TargetPath      = '%EXE%';\n"
-        "  $s.WorkingDirectory= '%APPDIR%';\n"
-        "  $s.Description     = 'N1700 Bridge - PLC measurement tool';\n"
-        "  $s.IconLocation    = '%EXE%';\n"
-        "  $s.Save()\n"
+        "  $s  = $ws.CreateShortcut($lnk);\n"
+        "  $s.TargetPath       = $exe;\n"
+        "  $s.WorkingDirectory = $appDir;\n"
+        "  $s.Description      = 'N1700 Bridge - PLC measurement tool';\n"
+        "  $s.IconLocation     = $exe;\n"
+        "  $s.Save();\n"
+        "  Write-Host ('Shortcut created: ' + $lnk)\n"
         "\"\n"
         "\n"
-        "echo Shortcut da tao tren Desktop: N1700 Bridge\n"
         "pause\n",
         encoding="utf-8",
     )
