@@ -142,9 +142,16 @@ def build() -> None:
 
     icon_path = create_icon(assets_dir)
 
-    # Data files to include
+    # Data files to include — prefer config.json (production), fall back to example
+    config_file = root / "config" / "config.json"
+    if not config_file.exists():
+        config_file = root / "config" / "config.example.json"
+        print(f"Warning: config.json not found, using {config_file.name}")
+    print(f"Bundling config: {config_file.name}")
+
     datas = [
-        (str(root / "config" / "config.example.json"), "config"),
+        (str(config_file), "config"),
+        (str(root / "config" / "template.xlsx"), "config"),
         (str(root / "mocks" / "sample_n1700_output.xlsx"), "mocks"),
         (str(root / "src" / "n1700_bridge" / "ui" / "resources" / "styles.qss"),
          str(Path("n1700_bridge") / "ui" / "resources")),
