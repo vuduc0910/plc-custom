@@ -116,6 +116,7 @@ class MainWindow(QMainWindow):
 
         self._setup_table_row(grid)
         self._setup_raw_row(grid)
+        self._setup_offset_row(grid)
         self._setup_zero_row(grid)
         self._setup_master_row(grid)
         self._setup_port_verdict_row(grid)
@@ -151,13 +152,22 @@ class MainWindow(QMainWindow):
             self.raw_displays.append(inp)
             grid.addWidget(inp, 1, 1 + i)
 
+    def _setup_offset_row(self, grid: QGridLayout) -> None:
+        grid.addWidget(QLabel(STRINGS["offset_label"]), 2, 0)
+        self.offset_inputs: list[QLineEdit] = []
+        for i in range(_NUM_PORTS):
+            inp = QLineEdit("0")
+            inp.setPlaceholderText("0")
+            self.offset_inputs.append(inp)
+            grid.addWidget(inp, 2, 1 + i)
+
     def _setup_zero_row(self, grid: QGridLayout) -> None:
-        grid.addWidget(QLabel(STRINGS["zero_label"]), 2, 0)
+        grid.addWidget(QLabel(STRINGS["zero_label"]), 3, 0)
         self.zero_inputs: list[QLineEdit] = []
         for i in range(_NUM_PORTS):
             inp = QLineEdit("0")
             self.zero_inputs.append(inp)
-            grid.addWidget(inp, 2, 1 + i)
+            grid.addWidget(inp, 3, 1 + i)
 
         btn_layout = QHBoxLayout()
         self.get_zero_btn = QPushButton(STRINGS["get_zero_btn"])
@@ -168,47 +178,47 @@ class MainWindow(QMainWindow):
         self.save_port_btn.setObjectName("save-btn")
         btn_layout.addWidget(self.save_port_btn)
 
-        grid.addLayout(btn_layout, 2, _NUM_PORTS + 1)
+        grid.addLayout(btn_layout, 3, _NUM_PORTS + 1)
 
     def _setup_master_row(self, grid: QGridLayout) -> None:
-        grid.addWidget(QLabel(STRINGS["master_label"]), 3, 0)
+        grid.addWidget(QLabel(STRINGS["master_label"]), 4, 0)
         self.master_inputs: list[QLineEdit] = []
         for g, (start_col, col_span) in enumerate(_GROUP_SPANS):
             inp = QLineEdit("0")
             inp.setPlaceholderText(f"M{g + 1}")
             self.master_inputs.append(inp)
-            grid.addWidget(inp, 3, start_col, 1, col_span)
+            grid.addWidget(inp, 4, start_col, 1, col_span)
 
         master_btn_layout = QHBoxLayout()
         self.save_master_btn = QPushButton(STRINGS["save_btn"])
         self.save_master_btn.setObjectName("save-btn")
         master_btn_layout.addWidget(self.save_master_btn)
-        grid.addLayout(master_btn_layout, 3, _NUM_PORTS + 1)
+        grid.addLayout(master_btn_layout, 4, _NUM_PORTS + 1)
 
     def _setup_port_verdict_row(self, grid: QGridLayout) -> None:
-        grid.addWidget(QLabel(STRINGS["judgment_label"]), 4, 0)
+        grid.addWidget(QLabel(STRINGS["judgment_label"]), 5, 0)
         self.port_verdict_labels: list[QLabel] = []
         for i in range(_NUM_PORTS):
             lbl = QLabel("--")
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl.setObjectName("verdict-pending")
             self.port_verdict_labels.append(lbl)
-            grid.addWidget(lbl, 4, 1 + i)
+            grid.addWidget(lbl, 5, 1 + i)
 
     def _setup_group_judgment_rows(self, grid: QGridLayout) -> None:
-        grid.addWidget(QLabel("Groups"), 5, 0)
+        grid.addWidget(QLabel("Groups"), 6, 0)
         self.group_verdict_labels: list[QLabel] = []
         for g, (start_col, col_span) in enumerate(_GROUP_SPANS):
             name_lbl = QLabel(f"N{g + 1}")
             name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            grid.addWidget(name_lbl, 5, start_col, 1, col_span)
+            grid.addWidget(name_lbl, 6, start_col, 1, col_span)
 
             verdict_lbl = QLabel("--")
             verdict_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             verdict_lbl.setObjectName("verdict-pending")
             verdict_lbl.setMinimumHeight(32)
             self.group_verdict_labels.append(verdict_lbl)
-            grid.addWidget(verdict_lbl, 6, start_col, 1, col_span)
+            grid.addWidget(verdict_lbl, 7, start_col, 1, col_span)
 
     def _setup_status_bar(self) -> None:
         status_bar = QStatusBar()
@@ -300,6 +310,10 @@ class MainWindow(QMainWindow):
         self._handlers.on_barcode_reset()
 
     def _load_register_config(self, config: RegisterConfig) -> None:
+        for port, value in config.offsets.items():
+            idx = port - 1
+            if 0 <= idx < len(self.offset_inputs):
+                self.offset_inputs[idx].setText(str(value))
         for port, value in config.zeros.items():
             idx = port - 1
             if 0 <= idx < len(self.zero_inputs):

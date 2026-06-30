@@ -19,6 +19,15 @@ _NUM_GROUPS = 3
 _DECIMALS = 2
 _NUMBER_FORMAT = "0.00"
 
+# Column layout:
+#   1: Timestamp, 2: Part ID
+#   3 + (i-1)*2: Port i value,  4 + (i-1)*2: Port i Verdict   (i = 1..9)
+#   2 + _NUM_PORTS*2 + 1 = 21: group section start
+#   Group g (0-indexed): cell=21+g*3, value=22+g*3, verdict=23+g*3
+_PORT_VALUE_COL = lambda i: 2 + (i - 1) * 2 + 1   # noqa: E731
+_PORT_VERDICT_COL = lambda i: 2 + (i - 1) * 2 + 2  # noqa: E731
+_GROUP_START_COL = 2 + _NUM_PORTS * 2 + 1           # = 21
+
 
 class ReportExporter:
 
@@ -59,7 +68,11 @@ class ReportExporter:
     def _build_headers() -> list[str]:
         return (
             ["Timestamp", "Part ID"]
-            + [f"Port {i}" for i in range(1, _NUM_PORTS + 1)]
+            + [
+                item
+                for i in range(1, _NUM_PORTS + 1)
+                for item in (f"Port {i}", f"Port {i} Verdict")
+            ]
             + [
                 item
                 for i in range(1, _NUM_GROUPS + 1)
@@ -75,8 +88,10 @@ class ReportExporter:
         ]
 
         readings_map = {r.port: r.value for r in m.readings}
+        verdicts_map = {pv.port: pv.verdict.value for pv in m.port_verdicts}
         for port in range(1, _NUM_PORTS + 1):
             row_data.append(round(readings_map.get(port, 0.0), _DECIMALS))
+            row_data.append(verdicts_map.get(port, ""))
 
         for j in m.judgments:
             row_data.append(j.output_cell)
@@ -98,11 +113,10 @@ class ReportExporter:
 
     @staticmethod
     def _style_numeric_cells(ws: object, row_count: int) -> None:
-        """Force two-decimal display on the port and group-value columns."""
-        value_cols = list(range(3, 3 + _NUM_PORTS))
-        group_value_start = 2 + _NUM_PORTS + 1
+        """Force two-decimal display on port value and group-value columns."""
+        value_cols = [_PORT_VALUE_COL(i) for i in range(1, _NUM_PORTS + 1)]
         for g in range(_NUM_GROUPS):
-            value_cols.append(group_value_start + g * 3 + 1)
+            value_cols.append(_GROUP_START_COL + g * 3 + 1)
 
         for row_idx in range(2, row_count + 2):
             for col in value_cols:
@@ -112,11 +126,12 @@ class ReportExporter:
 
     @staticmethod
     def _style_verdict_cells(ws: object, row_count: int) -> None:
-        verdict_start_col = 2 + _NUM_PORTS + 1
+        port_verdict_cols = [_PORT_VERDICT_COL(i) for i in range(1, _NUM_PORTS + 1)]
+        group_verdict_cols = [_GROUP_START_COL + g * 3 + 2 for g in range(_NUM_GROUPS)]
+
         for row_idx in range(2, row_count + 2):
-            for g in range(_NUM_GROUPS):
-                verdict_col = verdict_start_col + g * 3 + 2
-                cell = ws.cell(row=row_idx, column=verdict_col)  # type: ignore[union-attr]
+            for col in port_verdict_cols + group_verdict_cols:
+                cell = ws.cell(row=row_idx, column=col)  # type: ignore[union-attr]
                 if cell.value == Verdict.OK.value:
                     cell.fill = _OK_FILL
                     cell.font = _VERDICT_FONT

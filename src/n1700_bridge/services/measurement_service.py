@@ -190,9 +190,18 @@ class MeasurementService(QObject):
         reg_config = self._registers.get()
         multiplier = reg_config.multiplier if reg_config else 1.0
         zeros = reg_config.zeros if reg_config else {}
+        offsets = reg_config.offsets if reg_config else {}
         masters = reg_config.masters if reg_config else {}
         master_ranges = reg_config.master_ranges if reg_config else [[1, 4], [5, 8], [9, 9]]
-        calibrated = self._apply_calibration(raw_readings, zeros, multiplier, masters, master_ranges)
+        offset_readings = [
+            PortReading(port=r.port, value=r.value + offsets.get(r.port, 0.0))
+            for r in raw_readings
+        ]
+        log.info(
+            "After offset: {}",
+            {r.port: round(r.value, 4) for r in offset_readings},
+        )
+        calibrated = self._apply_calibration(offset_readings, zeros, multiplier, masters, master_ranges)
         log.info(
             "Calibrated: {}",
             {r.port: round(r.value, 4) for r in calibrated},

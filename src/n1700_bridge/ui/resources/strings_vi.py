@@ -42,6 +42,7 @@ STRINGS: dict[str, str] = {
     "group_name_label": "Group",
     "template_not_found": "Template file not found",
     "raw_label": "Raw",
+    "offset_label": "Offset",
     "zero_label": "Zero",
     "master_label": "Master",
     "part_id_column": "Part ID",

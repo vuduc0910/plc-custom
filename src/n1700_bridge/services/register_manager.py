@@ -52,6 +52,9 @@ class RegisterManager:
                     zeros={
                         int(k): float(v) for k, v in data.get("zeros", {}).items()
                     },
+                    offsets={
+                        int(k): float(v) for k, v in data.get("offsets", {}).items()
+                    },
                     masters={
                         int(k): float(v) for k, v in data.get("masters", {}).items()
                     },
@@ -88,6 +91,9 @@ class RegisterManager:
                 "multiplier": config.multiplier,
                 "zeros": {
                     str(k): v for k, v in config.zeros.items()
+                },
+                "offsets": {
+                    str(k): v for k, v in config.offsets.items()
                 },
                 "masters": {
                     str(k): v for k, v in config.masters.items()

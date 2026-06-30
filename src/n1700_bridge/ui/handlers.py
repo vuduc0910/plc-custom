@@ -241,6 +241,7 @@ class MainWindowHandlers(QObject):
         existing = self._w._register_mgr.get()
         base = asdict(existing) if existing else {}
 
+        offsets = _collect_float_map(self._w.offset_inputs)
         zeros = _collect_float_map(self._w.zero_inputs)
         masters = _collect_float_map(self._w.master_inputs)
         input_cells = self._w.judgment_panel.get_template_input_cells()
@@ -260,6 +261,7 @@ class MainWindowHandlers(QObject):
 
         base.update({
             "multiplier": multiplier,
+            "offsets": offsets,
             "zeros": zeros,
             "masters": masters,
             "template_path": template_path or None,
