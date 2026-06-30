@@ -193,20 +193,16 @@ class MeasurementService(QObject):
         offsets = reg_config.offsets if reg_config else {}
         masters = reg_config.masters if reg_config else {}
         master_ranges = reg_config.master_ranges if reg_config else [[1, 4], [5, 8], [9, 9]]
-        offset_readings = [
+        calibrated = self._apply_calibration(raw_readings, zeros, multiplier, masters, master_ranges)
+        final_readings = [
             PortReading(port=r.port, value=r.value + offsets.get(r.port, 0.0))
-            for r in raw_readings
+            for r in calibrated
         ]
         log.info(
-            "After offset: {}",
-            {r.port: round(r.value, 4) for r in offset_readings},
+            "Final (calibrated + offset): {}",
+            {r.port: round(r.value, 4) for r in final_readings},
         )
-        calibrated = self._apply_calibration(offset_readings, zeros, multiplier, masters, master_ranges)
-        log.info(
-            "Calibrated: {}",
-            {r.port: round(r.value, 4) for r in calibrated},
-        )
-        return calibrated
+        return final_readings
 
     def _evaluate_judgments(
         self, log: logger, readings: list[PortReading],
