@@ -227,11 +227,14 @@ def _apply_address_config(mgr: RegisterManager, settings: AppSettings) -> None:
 
     existing = mgr.get()
     zeros = existing.zeros if existing else {}
+    offsets = existing.offsets if existing else {}
     masters = existing.masters if existing else {}
     master_ranges = existing.master_ranges if existing else [[1, 4], [5, 8], [9, 9]]
     multiplier = existing.multiplier if existing else settings.multiplier
     template_path = existing.template_path if existing else None
     template_input_cells = existing.template_input_cells if existing else []
+    port_verdict_cells = existing.port_verdict_cells if existing else []
+    part_id_address = existing.part_id_address if existing else None
     judgment_groups = existing.judgment_groups if existing else []
 
     config = RegisterConfig(
@@ -240,10 +243,13 @@ def _apply_address_config(mgr: RegisterManager, settings: AppSettings) -> None:
         judgment_addresses={int(k): v for k, v in settings.judgment_addresses.items()},
         multiplier=multiplier,
         zeros=zeros,
+        offsets=offsets,
         masters=masters,
         master_ranges=master_ranges,
         template_path=template_path,
         template_input_cells=template_input_cells,
+        port_verdict_cells=port_verdict_cells,
+        part_id_address=part_id_address,
         judgment_groups=judgment_groups,
     )
     mgr.save(config)
