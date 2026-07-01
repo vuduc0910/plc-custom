@@ -12,7 +12,7 @@ _HEADER_FILL = PatternFill(start_color="1976D2", end_color="1976D2", fill_type="
 _HEADER_ALIGN = Alignment(horizontal="center")
 _OK_FILL = PatternFill(start_color="4CAF50", end_color="4CAF50", fill_type="solid")
 _NG_FILL = PatternFill(start_color="F44336", end_color="F44336", fill_type="solid")
-_VERDICT_FONT = Font(bold=True, color="FFFFFF")
+_VERDICT_FONT = Font(bold=True, color="FFFFFF", size=7)
 
 _NUM_PORTS = 9
 _NUM_GROUPS = 3

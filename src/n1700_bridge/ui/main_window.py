@@ -279,6 +279,8 @@ class MainWindow(QMainWindow):
         measurement_svc.zero_captured.connect(h.on_zero_captured)
         measurement_svc.zero_failed.connect(h.on_zero_failed)
         self.get_zero_btn.clicked.connect(h.on_get_zero)
+        for inp in self.offset_inputs:
+            inp.textChanged.connect(h.on_offset_changed)
         self.save_port_btn.clicked.connect(h.on_save_registers)
         self.save_master_btn.clicked.connect(h.on_save_registers)
         self.judgment_panel.save_judgment_btn.clicked.connect(h.on_save_registers)

@@ -230,6 +230,17 @@ class MainWindowHandlers(QObject):
         self._w.get_zero_btn.setEnabled(True)
 
     @Slot()
+    def on_offset_changed(self) -> None:
+        from dataclasses import replace
+
+        if not hasattr(self._w, "_register_mgr"):
+            return
+        existing = self._w._register_mgr.get()
+        if existing is None:
+            return
+        offsets = _collect_float_map(self._w.offset_inputs)
+        self._w._register_mgr.save(replace(existing, offsets=offsets))
+
     def on_save_registers(self) -> None:
         from dataclasses import asdict
 
