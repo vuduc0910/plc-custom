@@ -71,7 +71,7 @@ class ReportExporter:
             + [
                 item
                 for i in range(1, _NUM_PORTS + 1)
-                for item in (f"Port {i}", f"Port {i} Verdict")
+                for item in (f"Port {i}", f"P{i}V")
             ]
             + [
                 item
