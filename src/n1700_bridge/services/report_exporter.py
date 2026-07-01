@@ -142,8 +142,14 @@ class ReportExporter:
 
     @staticmethod
     def _auto_fit_columns(ws: object, headers: list[str], row_count: int) -> None:
+        verdict_cols = set(
+            [_PORT_VERDICT_COL(i) for i in range(1, _NUM_PORTS + 1)]
+            + [_GROUP_START_COL + g * 3 + 2 for g in range(_NUM_GROUPS)]
+        )
         for col_idx in range(1, len(headers) + 1):
-            max_width = len(str(headers[col_idx - 1]))
+            is_verdict = col_idx in verdict_cols
+            # For verdict columns skip header text — "OK"/"NG" content drives the width
+            max_width = 0 if is_verdict else len(str(headers[col_idx - 1]))
             for row_idx in range(2, min(row_count + 2, 52)):
                 val = ws.cell(row=row_idx, column=col_idx).value  # type: ignore[union-attr]
                 if val is not None:
